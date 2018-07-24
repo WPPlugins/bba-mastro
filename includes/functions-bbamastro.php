@@ -22,12 +22,10 @@ function bbamastro_add_taxonomy($taxonomy) {
         $attribute['attribute_public'] = 0;
 
         $result = $wpdb->insert( $wpdb->prefix . 'woocommerce_attribute_taxonomies', $attribute );
-
-       if($result !== false){
-
-            $attribute['attribute_id'] = $wpdb->insert_id;
-            set_transient("wc_attribute_taxonomies", array((object)$attribute));
-
+        if($result !== false){
+            do_action( 'woocommerce_attribute_added', $wpdb->insert_id, $attribute );
+            flush_rewrite_rules();
+            delete_transient( 'wc_attribute_taxonomies' );
         }
         
     
@@ -126,7 +124,7 @@ function bbamastro_locate_template( $template_name, $template_path = '', $defaul
     }
 
     if ( ! $default_path ) {
-        $default_path = BBAM()->p_path() . '/templates/';
+        $default_path = BBAM()->bbam_plugin_path() . '/templates/';
     }
 
     // Look within passed path within the theme - this is priority.
@@ -522,7 +520,38 @@ function bbamastro_select2_fields( $field, $key, $args, $value ) {
 }
 
 /**
-  for testing
+ * Build webhook payload
+ * 
+ */
+function bbamastro_woocommerce_webhook_payload($payload, $resource, $resource_id, $id) {
+    if($payload["order_key"]){
+        for($i = 0; $i < count($payload['line_items']); $i++){
+            if(empty($payload['line_items'][$i]['sku'])){
+                $payload['line_items'][$i]['sku'] =  $payload['line_items'][$i]["product_id"];
+            }
+        }
+    } else if($payload["name"]) {
+        if(empty($payload['sku'])){
+            $payload["sku"] =  $payload["id"];
+        }
+    }
+    return $payload;
+}
+
+/**
+ * Build rest api response for products
+ */
+function bbamastro_prepare_product( $response, $product, $request) {
+    $data = $response->get_data();
+	if(empty($data['sku'])){
+       $data['sku'] = $data['id'];
+       $response->set_data($data);
+    }
+	return $response;
+}
+
+/**
+*  for testing
 */
 function wc_reg_for_menus( $register, $name = '' ) {
      if ( $name == 'pa_size' ) $register = true;

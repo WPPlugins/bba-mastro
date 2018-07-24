@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 $settings['enabled'] = array(
     'title'   => __( 'Enable', 'bbamastro' ),
     'type'    => 'checkbox',
-    'label'   => __( 'Enable BBA Mastro shipping rules', 'bbamastro' ),
+    'label'   => __( 'Enable BBA Mastro shipping methods', 'bbamastro' ),
     'default' => 'no',
 );
 
@@ -48,6 +48,16 @@ $settings['acc_password'] = array(
     'description' => __( 'BBA Mastro account password.', 'bbamastro' ),
     'desc_tip'    => true,
 );
+
+// edited here
+$settings['reseller_id'] = array(
+    'title'       => __( 'Reseller Id', 'bbamastro' ),
+    'placeholder' => __( 'Reseller Id', 'bbamastro' ),
+    'type'        => 'text',
+    'css'         => 'min-width:350px;',
+    'default'     => '',
+);
+// end of edit
 
 $settings['channel'] = array(
     'title'       => __( 'Channel', 'bbamastro' ),
@@ -121,19 +131,5 @@ $settings['wh_city'] = array(
     'type'        => 'text',
     'css'         => 'min-width:350px;',
     'default'     => '',
-);
-
-
-$settings['shipping_calculator'] = array(
-    'title' => __( 'Shipping Calculator', 'bbamastro' ),
-    'type'  => 'title',
-);
-
-
-$settings['product_page_calculator'] = array(
-    'title'   => __( 'Enable', 'bbamastro' ),
-    'type'    => 'checkbox',
-    'label'   => __( 'Enable shipping calculator in product page', 'bbamastro' ),
-    'default' => 'no',
 );
 return $settings;

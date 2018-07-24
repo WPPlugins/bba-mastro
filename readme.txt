@@ -41,7 +41,7 @@ Achieving KPIs and service-level benchmarks has never been easier thanks to our 
 
 == Installation ==
 = Minimum Requirements =
-* PHP version 5.2.4 or greater (PHP 5.6 or greater is recommended)
+* PHP version 5.6 or greater (PHP 5.6 or greater is recommended)
 * MySQL version 5.0 or greater (MySQL 5.6 or greater is recommended)
 * Some payment gateways require fsockopen support (for IPN access)
 * WordPress 4.4+

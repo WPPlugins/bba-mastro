@@ -141,21 +141,21 @@ class BBAMastro_Shipping_Rules extends WC_Shipping_Method {
         if(!isset($_REQUEST['product-id'])){
             foreach ( $package['contents'] as $item ) {
                 $params['items'][] = array(
-                "description"       => $item['data']->get_description(),
+                //"description"       => $item['data']->get_description(),
                 'quantity'          => ( int ) $item['quantity'],
-                "value"             => $item['data']->get_regular_price(),
-                "manufacturer"      => "China",
-                "itemType"          => $item['data']->get_type(),
-                "categories"        => array("expensive", "electronics"),
-                "sku"               => $item['data']->get_sku(),
-                "country"           => "Canada",
+                "value"             => ( int ) $item['data']->get_regular_price(),
+                //"manufacturer"      => "China",
+                //"itemType"          => $item['data']->get_type(),
+                //"categories"        => array("expensive", "electronics"),
+                //"sku"               => $item['data']->get_sku(),
+                //"country"           => "Canada",
                 'length'            => ( float ) $item['data']->get_length() ?: $default['length'],
                 'width'             => ( float ) $item['data']->get_width() ?: $default['width'],
                 'height'            => ( float ) $item['data']->get_height() ?: $default['height'],
                 'weight'            => ( float ) $item['data']->get_weight() ?: $default['weight'],
                 "code"              => "TST",
-                "name"              => $item['data']->get_name(),
-                "taxes"             => null,
+                //"name"              => $item['data']->get_name(),
+                //"taxes"             => null,
                 "weightUnit"        => "Kilograms",
                 "measureUnit"       => "CM",
                 "currency"          => "USD"
@@ -165,21 +165,21 @@ class BBAMastro_Shipping_Rules extends WC_Shipping_Method {
             $product_id = absint($_REQUEST['product-id'] );
             $product = wc_get_product( $product_id );
             $params['items'][] = array(
-                "description"       => $product->get_description(),
+                //"description"       => $product->get_description(),
                 "quantity"          => 1,
-                "value"             => $product->get_regular_price(),
-                "manufacturer"      => "China",
-                "itemType"          => $product->get_type(),
-                "categories"        => array("expensive", "electronics"),
-                "sku"               => $product->get_sku(),
-                "country"           => "Canada",
+                "value"             => ( int )$product->get_regular_price(),
+                //"manufacturer"      => "China",
+                //"itemType"          => $product->get_type(),
+                //"categories"        => array("expensive", "electronics"),
+                //"sku"               => $product->get_sku(),
+                //"country"           => "Canada",
                 "weight"            => $product->get_weight() ?: $default['length'],
                 "length"            => $product->get_length() ?: $default['length'],
                 "width"             => $product->get_width() ?: $default['length'],
                 "height"            => $product->get_height() ?: $default['length'],
                 "code"              => "TST",
-                "name"              => $product->get_name(),
-                "taxes"             => null,
+                //"name"              => $product->get_name(),
+                //"taxes"             => null,
                 "weightUnit"        => "Kilograms",
                 "measureUnit"       => "CM",
                 "currency"          => "USD"
@@ -187,20 +187,34 @@ class BBAMastro_Shipping_Rules extends WC_Shipping_Method {
         }
 
         $params['packages'] = array();
-        foreach ( $package['contents'] as $item ) {
-            if ( $item['data']->needs_shipping() ) {
-                $params['packages'][] = array(
-                    'length'   => ( float ) $item['data']->get_length() ?: $default['length'],
-                    'width'    => ( float ) $item['data']->get_width() ?: $default['width'],
-                    'height'   => ( float ) $item['data']->get_height() ?: $default['height'],
-                    'weight'   => ( float ) $item['data']->get_weight() ?: $default['weight'],
-                    'quantity' => ( int ) $item['quantity'],
-                    "weightUnit" => "Kilograms",
-                    "measureUnit" => "CM",
-                    "contentWeight" => ( float ) $item['data']->get_weight() ?: $default['weight']
-                );
+        $totalVolume = 0;
+        $totalContentWeight = 0;
+        $totalQuantity = 0;
+
+        foreach ($package['contents'] as $item) {
+            if($item['data']->needs_shipping()){
+                $length = ( float ) $item['data']->get_length() ?: $default['length'];
+                $width = ( float ) $item['data']->get_width() ?: $default['width'];
+                $height = ( float ) $item['data']->get_height() ?: $default['height'];
+                
+                $itemVolume = ($length * $width) * $height;
+                $totalVolume = $totalVolume + $itemVolume;
+                $totalContentWeight += ( float ) $item['data']->get_weight() ?: $default['weight'];
+                $totalQuantity += (int) $item['quantity'];
             }
-        }   
+        }
+    
+        $cubeRoot = round(pow($totalVolume, (1.0/3.0))); 
+        $params['packages'][] = array(
+            'length' => $cubeRoot,
+            'width' => $cubeRoot,
+            'height' => $cubeRoot,
+            'weight' => $totalContentWeight,
+            'quantity' => $totalQuantity,
+            'measureUnit' => "CM",
+            'weightUnit' => "Kilograms",
+            'contentWeight' => $totalContentWeight
+        );
         return $params;
     }
 
@@ -208,9 +222,11 @@ class BBAMastro_Shipping_Rules extends WC_Shipping_Method {
      * Collect rates.
      */
     public function bbam_collect_rates( $params = array() ) {
-        $api = new BBAMastro_Api();
-        $response = $api->bbam_dispatch( 'POST', 'carrier/quote', array(), $params, true );
-        return $this->bbam_parse_rates( $response );
+        if(bbamastro_config('enabled') === 'yes'){
+            $api = new BBAMastro_Api();
+            $response = $api->bbam_dispatch( 'POST', 'carrier/quote', array(), $params, true );
+            return $this->bbam_parse_rates( $response );
+        }
     }
 
     /**
@@ -219,28 +235,29 @@ class BBAMastro_Shipping_Rules extends WC_Shipping_Method {
     public function bbam_parse_rates( $response ) {
 
         $rates = array();
-        if ( $response && ! empty( $response ) ) {
-            foreach( $response as $carrier ) {
-                $carrierProfileId = $carrier->carrierProfileId;
-                $carrierName = $carrier->carrierName;
-                $currency = $carrier->currency;
-                $eta = $carrier->eta;
-                $amount = $carrier->amount;
-                $tax = $carrier->tax;
+        if (is_array($response) || is_object($response)){
+            if(!empty($response)) {
+                foreach( $response as $carrier ) {
+                    $carrierProfileId = $carrier->carrierProfileId;
+                    $carrierName = $carrier->carrierName;
+                    $currency = $carrier->currency;
+                    $eta = $carrier->eta;
+                    $amount = $carrier->amount;
+                    $tax = $carrier->tax;
 
-                if(!empty($carrier->serviceProfile)){
-                    $serviceProfileId = $carrier->serviceProfile->id;
-                    $serviceProfileName = $carrier->serviceProfile->name;
+                    if(!empty($carrier->serviceProfile)){
+                        $serviceProfileId = $carrier->serviceProfile->id;
+                        $serviceProfileName = $carrier->serviceProfile->name;
+                    }
+
+                    $rates[] = array(
+                        'id'    => $carrierProfileId . '_' . $serviceProfileId,
+                        'label' => $carrierName . ' [' . $serviceProfileName . '] [' . $eta . '] [Tax: '  . $currency . ' $' . $tax . ' ]',
+                        'cost'  => $amount
+                    );
                 }
-
-                $rates[] = array(
-                    'id'    => $carrierProfileId . '_' . $serviceProfileId,
-                    'label' => $carrierName . ' [' . $serviceProfileName . '] [' . $eta . '] [Tax: '  . $currency . ' $' . $tax . ' ]',
-                    'cost'  => $amount
-                );
             }
         }
-
         return $rates;
     }
 

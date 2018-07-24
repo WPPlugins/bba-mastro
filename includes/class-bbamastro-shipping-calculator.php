@@ -38,8 +38,7 @@ class BBAMastro_Shipping_Calculator extends WC_Cart {
     /**
      * Get shipping rates
      */
-    public function bbam_getRates() {
-
+    public function bbam_getRates() { 
         $country = $_REQUEST['country'];
         $postcode = $_REQUEST['postcode'];
 

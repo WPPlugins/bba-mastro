@@ -72,7 +72,6 @@ class BBAMastro_Api {
         if ( is_array( $headers ) ) {
             $options[CURLOPT_HTTPHEADER] = $headers;
         }
-
         curl_setopt_array( $this->bbam_get_resource(), $options );
     }
 
@@ -124,23 +123,22 @@ class BBAMastro_Api {
             $url_query = bbamastro_create_url_query( $queries );
             $url = $url . '?' . implode( '&', $url_query );
         }
-
+        
+        $sanitizedParams = $this->cleanPayload($params);
         $headers = array( 'Authorization: Bearer ' . $this->bbam_getAccessToken() );
+        array_push($headers, 'Origin: '.$this->setOriginValue());
+
         $body = '';
         if ( $as_json ) {
             array_push( $headers, 'Content-Type: application/json' );
-            $body = json_encode( $params );
+            $body = json_encode( $sanitizedParams );
         }
 
         $this->bbam_write( $method, $url, '1.1', $headers, $body );
         $response = $this->bbam_read();
-
         $this->bbam_close();
         $result = $this->bbam_parse_json( $response );
-
-
-
-
+        
         if ( isset($result->error)) {
             return "Couldn't dispatch action '" . $action . "'.";
         } else {
@@ -173,22 +171,58 @@ class BBAMastro_Api {
             'client_id'     => $client_id,
             'client_secret' => $client_secret,
             'grant_type'    => 'password',
+			'reseller_id' => bbamastro_config('reseller_id', null) ? : ''
         );
 
         $this->auth_url = bbamastro_config( 'auth_url', null );
         if ( $auth_code ) {
             array_push( $headers, 'Authorization: ' . $auth_code );
+            array_push($headers, 'Origin: '.$this->setOriginValue());
         }
-
+		
         $this->bbam_write( 'POST', $this->auth_url, '1.1', $headers, $body );
         $response = $this->bbam_read();
         $this->bbam_close();
         $result = $this->bbam_parse_json( $response );
-    
+
         if ( $result->access_token ) {
             return $result->access_token;
         } else {
             return "Couldn't do authorization to BBA Mastro";
         }
+    }
+    
+    private function cleanPayload($payload){
+        if(isset($payload['items'])){
+            for($i = 0; $i < count($payload['items']); $i++) {
+                $description = $payload['items'][$i]['description'];
+                $payload['items'][$i]['description'] = trim(preg_replace('/\s\s+/',' ',strip_tags($description)));
+                $payload['items'][$i]['sku'] = empty($payload['items'][$i]['sku']) ? $payload['items'][$i]['id'] : $payload['items'][$i]['sku'];
+            }
+            $sanitizedPayload = $payload;
+            return $sanitizedPayload;
+        }
+        return $payload;
+    }
+
+    private function setOriginValue(){
+        $originValue = "https://api-dev.bbamastro.com";
+        $apiUrl = bbamastro_config('api_url', null);
+
+        switch($apiUrl) {
+            case "https://api-dev.bbamastro.com":
+                $originValue = "https://dashboard-dev.bbamastro.com";
+            break;
+            case "https://api-staging.bbamastro.com": 
+                $originValue = "https://dashboard-staging.bbamastro.com";
+            break;
+            case "https://api-demo.bbamastro.com": 
+                $originValue = "https://dashboard-demo.bbamastro.com";
+            break;
+            case "https://api.bbamastro.com": 
+                $originValue = "https://dashboard.bbamastro.com";
+            break;
+        }
+        return $originValue;
     }
 }

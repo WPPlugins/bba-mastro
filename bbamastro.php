@@ -119,7 +119,6 @@ final class BBAMastro {
     /**
      * After Wordpress plugins loaded.
      */
-
     public function bbam_plugins_loaded() {
         if ( $this->bbam_woocommerce_enabled() ) { // Woocommerce must be enabled.
             if ( $this->bbam_check_request( 'admin' ) ) {
@@ -135,8 +134,14 @@ final class BBAMastro {
                 add_action( 'ajax_nopriv_bbamastro_estimate_shipping', 'bbamastro_estimate_shipping' );
 
             }
+            
             // Shipping rules
             add_filter( 'woocommerce_shipping_methods', 'bbamastro_shipping_methods' );
+            // webhook payload
+            add_action('woocommerce_webhook_payload', 'bbamastro_woocommerce_webhook_payload');
+            // rest api response for products
+            add_filter( 'woocommerce_rest_prepare_product_object', 'bbamastro_prepare_product', 90, 2 );
+
             include_once( 'includes/class-bbamastro-shipping-rules.php' );
             include_once( 'includes/class-bbamastro-shipping-calculator.php' );
         }
