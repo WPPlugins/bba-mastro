@@ -253,7 +253,10 @@ class BBAMastro_Shipping_Rules extends WC_Shipping_Method {
                     $rates[] = array(
                         'id'    => $carrierProfileId . '_' . $serviceProfileId,
                         'label' => $carrierName . ' [' . $serviceProfileName . '] [' . $eta . '] [Tax: '  . $currency . ' $' . $tax . ' ]',
-                        'cost'  => $amount
+                        'cost'  => $amount,
+                        'meta_data' => array(
+							'shipping_method' => $carrierProfileId . '_' . $serviceProfileId,
+						)
                     );
                 }
             }

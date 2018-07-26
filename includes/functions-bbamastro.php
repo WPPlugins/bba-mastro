@@ -525,6 +525,11 @@ function bbamastro_select2_fields( $field, $key, $args, $value ) {
  */
 function bbamastro_woocommerce_webhook_payload($payload, $resource, $resource_id, $id) {
     if($payload["order_key"]){
+        
+        $shippingData = $payload['shipping_lines'][0]['meta_data'][0];
+		$shipping = $shippingData->get_data();
+        $payload['shipping_lines'][0]['method_id'] = $shipping['value'];
+        
         for($i = 0; $i < count($payload['line_items']); $i++){
             if(empty($payload['line_items'][$i]['sku'])){
                 $payload['line_items'][$i]['sku'] =  $payload['line_items'][$i]["product_id"];
