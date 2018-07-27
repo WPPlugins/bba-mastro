@@ -187,34 +187,21 @@ class BBAMastro_Shipping_Rules extends WC_Shipping_Method {
         }
 
         $params['packages'] = array();
-        $totalVolume = 0;
-        $totalContentWeight = 0;
-        $totalQuantity = 0;
-
-        foreach ($package['contents'] as $item) {
-            if($item['data']->needs_shipping()){
-                $length = ( float ) $item['data']->get_length() ?: $default['length'];
-                $width = ( float ) $item['data']->get_width() ?: $default['width'];
-                $height = ( float ) $item['data']->get_height() ?: $default['height'];
-                
-                $itemVolume = ($length * $width) * $height;
-                $totalVolume = $totalVolume + $itemVolume;
-                $totalContentWeight += ( float ) $item['data']->get_weight() ?: $default['weight'];
-                $totalQuantity += (int) $item['quantity'];
+        foreach ( $package['contents'] as $item ) {
+            if ( $item['data']->needs_shipping() ) {
+                $params['packages'][] = array(
+                    'length'   => ( float ) $item['data']->get_length() ?: $default['length'],
+                    'width'    => ( float ) $item['data']->get_width() ?: $default['width'],
+                    'height'   => ( float ) $item['data']->get_height() ?: $default['height'],
+                    'weight'   => ( float ) $item['data']->get_weight() ?: $default['weight'],
+                    'quantity' => ( int ) $item['quantity'],
+                    "weightUnit" => "Kilograms",
+                    "measureUnit" => "CM",
+                    "contentWeight" => ( float ) $item['data']->get_weight() ?: $default['weight']
+                );
             }
-        }
-    
-        $cubeRoot = round(pow($totalVolume, (1.0/3.0))); 
-        $params['packages'][] = array(
-            'length' => $cubeRoot,
-            'width' => $cubeRoot,
-            'height' => $cubeRoot,
-            'weight' => $totalContentWeight,
-            'quantity' => $totalQuantity,
-            'measureUnit' => "CM",
-            'weightUnit' => "Kilograms",
-            'contentWeight' => $totalContentWeight
-        );
+        }  
+        
         return $params;
     }
 
