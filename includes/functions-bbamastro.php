@@ -523,7 +523,7 @@ function bbamastro_select2_fields( $field, $key, $args, $value ) {
  * Build webhook payload
  * 
  */
-function bbamastro_woocommerce_webhook_payload($payload, $resource, $resource_id, $id) {
+function bbamastro_woocommerce_webhook_payload($payload) {
     if($payload["order_key"]){
         
         $shippingData = $payload['shipping_lines'][0]['meta_data'][0];
@@ -546,7 +546,7 @@ function bbamastro_woocommerce_webhook_payload($payload, $resource, $resource_id
 /**
  * Build rest api response for products
  */
-function bbamastro_prepare_product( $response, $product, $request) {
+function bbamastro_prepare_product( $response, $product) {
     $data = $response->get_data();
 	if(empty($data['sku'])){
        $data['sku'] = $data['id'];

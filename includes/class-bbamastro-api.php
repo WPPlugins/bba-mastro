@@ -193,15 +193,6 @@ class BBAMastro_Api {
     }
     
     private function cleanPayload($payload){
-        if(isset($payload['items'])){
-            for($i = 0; $i < count($payload['items']); $i++) {
-                $description = $payload['items'][$i]['description'];
-                $payload['items'][$i]['description'] = trim(preg_replace('/\s\s+/',' ',strip_tags($description)));
-                $payload['items'][$i]['sku'] = empty($payload['items'][$i]['sku']) ? $payload['items'][$i]['id'] : $payload['items'][$i]['sku'];
-            }
-            $sanitizedPayload = $payload;
-            return $sanitizedPayload;
-        }
         return $payload;
     }
 
