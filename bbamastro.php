@@ -2,7 +2,7 @@
 /**
  * Plugin Name: BBA Mastro
  * Description: Multi Carrier Shipping and Logistics Technology able to seamlessly integrate into your Woo cart.
- * Version: 1.2.6
+ * Version: 1.2.7
  * Author: BBA Mastro
  * Author URI: https://bbamastro.com
  * @package BBA Mastro

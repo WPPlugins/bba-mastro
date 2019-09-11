@@ -527,7 +527,13 @@ function bbamastro_woocommerce_webhook_payload($payload) {
     if($payload["order_key"]){
         $shippingData = $payload['shipping_lines'][0]['meta_data'][0];
         bba_woo_logger($shippingData, 'ShippingData');
-        $payload['shipping_lines'][0]['method_id'] = $shippingData['value'];
+        
+        if(is_object($shippingData)){
+            $shipping = $shippingData->get_data();
+            $payload['shipping_lines'][0]['method_id'] = $shipping['value'];
+        } else {
+            $payload['shipping_lines'][0]['method_id'] = $shippingData['value'];
+        }
         
         for($i = 0; $i < count($payload['line_items']); $i++){
             if(empty($payload['line_items'][$i]['sku'])){
