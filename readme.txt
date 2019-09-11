@@ -3,7 +3,7 @@ Contributors: developerbbamastro
 Tags: ecommerce, e-commerce, store, sales, sell, shop, cart, checkout, downloadable, downloads, paypal, storefront, woo commerce, shipping, logistics, fulfillment
 Requires at least: 4.4
 Tested up to: 5.2
-Stable tag: 1.2.5
+Stable tag: 1.2.6
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 BBA Mastro Multi Carrier Shipping and Logistics Technology able to seamlessly integrate into your Woo cart.

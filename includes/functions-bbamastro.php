@@ -525,21 +525,22 @@ function bbamastro_select2_fields( $field, $key, $args, $value ) {
  */
 function bbamastro_woocommerce_webhook_payload($payload) {
     if($payload["order_key"]){
-        
         $shippingData = $payload['shipping_lines'][0]['meta_data'][0];
-		$shipping = $shippingData->get_data();
-        $payload['shipping_lines'][0]['method_id'] = $shipping['value'];
+        bba_woo_logger($shippingData, 'ShippingData');
+        $payload['shipping_lines'][0]['method_id'] = $shippingData['value'];
         
         for($i = 0; $i < count($payload['line_items']); $i++){
             if(empty($payload['line_items'][$i]['sku'])){
                 $payload['line_items'][$i]['sku'] =  $payload['line_items'][$i]["product_id"];
             }
         }
+
     } else if($payload["name"]) {
         if(empty($payload['sku'])){
             $payload["sku"] =  $payload["id"];
         }
     }
+    bba_woo_logger($payload, 'Webhook Payload');
     return $payload;
 }
 
@@ -547,7 +548,7 @@ function bbamastro_woocommerce_webhook_payload($payload) {
  * Build rest api response for products
  */
 function bbamastro_prepare_product( $response, $product) {
-    $data = $response->get_data();
+    $data = $response->get_data(); // I think we do have an issue here
 	if(empty($data['sku'])){
        $data['sku'] = $data['id'];
        $response->set_data($data);
@@ -561,4 +562,15 @@ function bbamastro_prepare_product( $response, $product) {
 function wc_reg_for_menus( $register, $name = '' ) {
      if ( $name == 'pa_size' ) $register = true;
      return $register;
+}
+
+/**
+ * Woo Logger
+ * 
+ */
+function bba_woo_logger($logData, $label){
+    $logger = wc_get_logger();
+    $context = array( 'source' => 'bba-mastro-payload-and-response' );
+    $logger->debug("---------------------------------- $label ------------------------------------------", $context);
+    $logger->debug(json_encode($logData), $context);
 }

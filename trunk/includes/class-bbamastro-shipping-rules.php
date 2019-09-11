@@ -209,9 +209,11 @@ class BBAMastro_Shipping_Rules extends WC_Shipping_Method {
      * Collect rates.
      */
     public function bbam_collect_rates( $params = array() ) {
+        $this->bba_woo_logger($params, 'Request Quote Params');
         if(bbamastro_config('enabled') === 'yes'){
             $api = new BBAMastro_Api();
             $response = $api->bbam_dispatch( 'POST', 'carrier/quote', array(), $params, true );
+            $this->bba_woo_logger($params, 'Request Quote Response');
             return $this->bbam_parse_rates( $response );
         }
     }
@@ -255,4 +257,15 @@ class BBAMastro_Shipping_Rules extends WC_Shipping_Method {
      * Log exceptions.
      */
     public function bbam_log( $message = '' ) {}
+
+    /**
+     * Woo Logger
+     * 
+     */
+    private function bba_woo_logger($logData, $label){
+        $logger = wc_get_logger();
+        $context = array( 'source' => 'bba-mastro-request-quote-payload-response' );
+        $logger->debug("---------------------------------- $label ------------------------------------------", $context);
+        $logger->debug(json_encode($logData), $context);
+    }
 }
