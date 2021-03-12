@@ -2,7 +2,7 @@
 /**
  * Plugin Name: BBA Mastro
  * Description: Multi Carrier Shipping and Logistics Technology able to seamlessly integrate into your Woo cart.
- * Version: 2.0
+ * Version: 2.2
  * Author: BBA Mastro
  * Author URI: https://bbamastro.com
  * @package BBA Mastro
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('BBAMastro')) {
   final class BBAMastro {
-    public $version = '2.0';
+    public $version = '2.1';
     public static $bbamTrackingConsignmentInstance;
     protected static $usInstance = null;
 
@@ -54,7 +54,7 @@ if (!class_exists('BBAMastro')) {
 
     private static function includeAdminJsScripts(){
       $countries = new BBAM_Country();
-      wp_register_script('bbamastro-api', self::pluginURL().'/admin/js/shipping-rules', ['jquery', 'select2'], BBAMASTRO_VERSION);
+      wp_register_script('bbamastro-api', self::pluginURL().'/admin/js/shipping-rules.js', ['jquery', 'select2'], BBAMASTRO_VERSION);
       wp_localize_script('bbamastro-api', 'bbamastro', [
         'countries'  => $countries->getOptions(true),
         'settings'   => [

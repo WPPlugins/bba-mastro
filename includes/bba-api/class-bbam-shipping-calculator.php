@@ -16,6 +16,13 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
         $params['source'] = $shippingRules->getShippingOrigin();
         $params['destination'] = $shippingRules->getShippingDestination($package['destination']);
         $params['items'] = [];
+        $params['pickupDetails'] = [
+            'asap' => true,
+            'pickupDate' => null,
+            'pickupEarliestTime' => null,
+            'pickupLatestTime' => null,
+            'pickupTimezone' => get_option('gmt_offset')
+        ];
 
         if(!isset($_REQUEST['product-id'])) {
             foreach($package['contents'] as $item) {

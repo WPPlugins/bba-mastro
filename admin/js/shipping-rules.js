@@ -3,14 +3,16 @@ jQuery(function($){
         'dev': 'https://api-dev.bbamastro.com',
         'staging': 'https://api-staging.bbamastro.com',
         'demo': 'https://api-demo.bbamastro.com',
-        'prod': 'https://api.bbamastro.com'
+        'prod': 'https://api.bbamastro.com',
+        'azure': 'https://api-azure.bbamastro.com',
     };
 
     const authUrls = {
         'dev': 'https://auth-dev.bbamastro.com/oauth/token',
         'staging': 'https://auth-staging.bbamastro.com/oauth/token',
         'demo': 'https://auth-demo.bbamastro.com/oauth/token',
-        'prod': 'https://auth.bbamastro.com/oauth/token'
+        'prod': 'https://auth.bbamastro.com/oauth/token',
+        'azure': 'https://auth-azure.bbamastro.com/oauth/token'
     };
     
     const apiOptions = {
@@ -19,7 +21,8 @@ jQuery(function($){
                 { id: apiUrls.dev, text: apiUrls.dev }, 
                 { id: apiUrls.staging, text: apiUrls.staging }, 
                 { id: apiUrls.demo, text: apiUrls.demo }, 
-                { id: apiUrls.prod, text: apiUrls.prod }
+                { id: apiUrls.prod, text: apiUrls.prod },
+                { id: apiUrls.azure, text: apiUrls.azure }
             ]
     };
 
@@ -40,6 +43,9 @@ jQuery(function($){
                     break; 
                 case apiUrls.prod: 
                     $(authUrl).val(authUrls.prod)
+                    break;
+                case apiUrls.azure: 
+                    $(authUrl).val(authUrls.azure)
                     break;
             }
         });
