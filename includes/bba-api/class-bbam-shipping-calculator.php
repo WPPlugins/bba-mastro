@@ -26,18 +26,31 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
 
         if(!isset($_REQUEST['product-id'])) {
             foreach($package['contents'] as $item) {
-                $params['items'][] = $this->generateItemData($item, $default);
+                $terms_list = wp_get_post_terms($item['product_id'], 'product_cat');
+                $excluded = $this->is_in_excluded_categories($terms_list);
+                
+                if (!$excluded) {
+                    $params['items'][] = $this->generateItemData($item, $default);
+                }
             }
         } 
         else {
             $productId = absint($_REQUEST['product-id']);
-            $product = wc_get_product($productId);
-            $params['items'][] = $this->generateItemData($product, $default);
+            $terms_list = wp_get_post_terms($productId, 'product_cat');
+            $excluded = $this->is_in_excluded_categories($terms_list);
+            
+            if (!$excluded) {
+                $product = wc_get_product($productId);
+                $params['items'][] = $this->generateItemData($product, $default);
+            }
         }
 
         $params['packages'] = [];
         foreach($package['contents'] as $item) {
-            if($item['data']->needs_shipping()){
+            $terms_list = wp_get_post_terms($item['product_id'], 'product_cat');
+            $excluded = $this->is_in_excluded_categories($terms_list);
+
+            if($item['data']->needs_shipping() && !$excluded){
                 $params['packages'][] = $this->generatePackageData($item, $default);
             }
         }
@@ -59,6 +72,19 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
         ];
     }
 
+    private function is_in_excluded_categories($terms_list) {
+        $excluded_cat_str = BBAM_Utils::getConfig('excluded_categories'); // todo: need to change this one
+        $excluded_cat_array = explode(',', strtolower($excluded_cat_str));
+        
+        foreach ($terms_list as $category) {
+            if (in_array(strtolower($category->name), $excluded_cat_array)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function generatePackageData($item, $default){
         return [
             'length'   => ( float ) $item['data']->get_length() ?: $default['length'],
@@ -73,11 +99,10 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
     }
 
     public function getQuotes($params = []){
-        BBAM_Utils::logger($params, 'GET QUOTES PARAMS', 'bba-get-quotes-request');
         if(BBAM_Utils::getConfig('enabled') == 'yes') {
             $api = new BBAM_Api();
+			BBAM_Utils::logger($params, 'QUOTE REQUEST PAYLOAD', 'bba-api-quote-request-payload');
             $response = $api->sendApiRequest('POST', 'carrier/quote', [], $params, true);
-            //BBAM_Utils::logger($response, 'GET QUOTES RESPONSE', 'bba-get-quotes-request');
             return $this->parseQuotes($response);
         }
     }
@@ -87,26 +112,34 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
         if(is_array($response) || is_object($response)) {
             if(!empty($response)){
                 foreach($response as $carrier) {
-                    $carrierProfileId = $carrier->carrierProfileId;
-                    $carrierName = $carrier->carrierName;
-                    $currency = $carrier->currency;
-                    $eta = $carrier->eta;
-                    $amount = $carrier->amount;
-                    $tax = $carrier->tax;
+                    if(!is_string($carrier) && !is_null($carrier)) {
+                        $carrierProfileId = $carrier->carrierProfileId;
+                        $carrierName = $carrier->carrierName;
+                        $currency = $carrier->currency;
+                        $eta = $carrier->eta;
+                        $amount = $carrier->amount;
+                        $tax = $carrier->tax;
 
-                    if(!empty($carrier->serviceProfile)){
-                        $serviceProfileId = $carrier->serviceProfile->id;
-                        $serviceProfileName = $carrier->serviceProfile->name;
+
+                        $serviceProfileId = $carrier->serviceProfileId;
+                        $serviceProfileName = $carrier->serviceProfileName;
+						$label = $carrierName;
+						
+						if ($carrier->operation) {
+							$label = $label . '['.$carrier->operation->name.']';
+						}
+						
+						$label = $label . ' [' . $serviceProfileName . '] [' . $eta . '] [Tax: '  . $currency . ' $' . $tax . ' ]';
+
+                        $rates[] = [
+                            'id'    => $carrierProfileId . '_' . $serviceProfileId,
+                            'label' => $label,
+                            'cost'  => $amount,
+                            'meta_data' => array(
+                                'shipping_method' => $carrierProfileId . '_' . $serviceProfileId,
+                            )
+                        ];
                     }
-
-                    $rates[] = [
-                        'id'    => $carrierProfileId . '_' . $serviceProfileId,
-                        'label' => $carrierName . ' [' . $serviceProfileName . '] [' . $eta . '] [Tax: '  . $currency . ' $' . $tax . ' ]',
-                        'cost'  => $amount,
-                        'meta_data' => array(
-							'shipping_method' => $carrierProfileId . '_' . $serviceProfileId,
-						)
-                    ];
                 }
             }
         }

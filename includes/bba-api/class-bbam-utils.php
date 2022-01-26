@@ -129,6 +129,7 @@ class BBAM_Utils {
         require_once "class-bbam-admin-custom-order-fields-shop-order.php";
         require_once "class-bbam-tracking-id-and-consignment-id-fields.php";
         require_once "class-bbam-admin-custom-order-fields-meta-box.php";
+        require_once "class-bbam-excluded-categories.php";
     }
 
     public static function logger($logData, $label, $source, $varDump = false){
@@ -157,6 +158,26 @@ class BBAM_Utils {
                 $payload['shipping_lines'][0]['method_id'] = $shipping['value'];
             } else {
                 $payload['shipping_lines'][0]['method_id'] = $shippingData['value'];
+            }
+
+            if (!empty($payload['line_items'])) {
+                foreach($payload['line_items'] as $value) {
+                    $product = wc_get_product($value['product_id']);
+                    $categories = $product->get_categories();
+                    // $dimensions = $product->get_dimensions();
+                    $payload['product_categories'] = [];
+                    // array_push($payload['product_dimensions'], $dimensions);
+
+                    if (is_array($categories)) {
+                        foreach($categories as $cat) {
+                            array_push($payload['product_categories'], strip_tags($cat));
+                        }
+                    } else {
+                        array_push($payload['product_categories'], strip_tags($categories));
+                    }
+                     
+                    self::logger($shippingData, 'Product Categories', 'bba-webhook-payload-product-cat');
+                }
             }
         }
         else if($payload['name']){

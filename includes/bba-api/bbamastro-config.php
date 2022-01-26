@@ -98,6 +98,10 @@
         'desc_tip'    => true,
     );
 
+    $settings['excluded_categories'] = array(
+        'type'        => 'hidden',
+    );
+
     $settings['warehouse_details'] = array(
         'title' => __( 'Warehouse Details', 'bbamastro' ),
         'type'  => 'title',

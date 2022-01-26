@@ -39,9 +39,15 @@ class BBAM_ShippingRules extends WC_Shipping_Method{
             $shippingCalcualtor = new BBAM_Shipping_Calculator();
             $params = $shippingCalcualtor->generateGetQuotesParams($package);
             $quotes = $shippingCalcualtor->getQuotes($params);
-            foreach($quotes as $q) {
-                $this->add_rate($q);
+            
+            if ($quotes) {
+                foreach($quotes as $q) {
+                    $this->add_rate($q);
+                }
             }
+			
+			BBAM_Utils::logger($params, 'QUOTE REQUEST PAYLOAD', 'bba-mastro-quotes-request-payload');
+            BBAM_Utils::logger($quotes, 'SHIPPING QUOTES', 'bba-mastro-quotes-response');
         } 
         catch(Exception $e) {
             BBAM_Utils::logger($e->getMessage(), 'CALCULATE SHIPPING ERROR', 'bba-mastro-error');
