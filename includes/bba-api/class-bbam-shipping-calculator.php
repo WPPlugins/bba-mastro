@@ -23,7 +23,8 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
             'pickupLatestTime' => null,
             'pickupTimezone' => get_option('gmt_offset')
         ];
-
+        
+        # todo: need to modify this code
         if(!isset($_REQUEST['product-id'])) {
             foreach($package['contents'] as $item) {
                 $terms_list = wp_get_post_terms($item['product_id'], 'product_cat');
@@ -49,12 +50,63 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
         foreach($package['contents'] as $item) {
             $terms_list = wp_get_post_terms($item['product_id'], 'product_cat');
             $excluded = $this->is_in_excluded_categories($terms_list);
-
             if($item['data']->needs_shipping() && !$excluded){
                 $params['packages'][] = $this->generatePackageData($item, $default);
             }
         }
         return $params;
+    }
+
+    public function calculatePackaging($package = []) {
+        $api = new BBAM_Api();
+        $shippingRules = new BBAM_ShippingRules();
+        $default = $shippingRules->getPackageSettings();    
+        $payload = [];
+
+        foreach($package['contents'] as $item) {
+            $terms_list = wp_get_post_terms($item['product_id'], 'product_cat');
+            $excluded = $this->is_in_excluded_categories($terms_list);
+
+            if($item['data']->needs_shipping() && !$excluded){
+                $payload[] = [
+                    'id' => null,
+                    'quantity' => (int) $item['quantity'],
+                    'length' => ( float ) $item['data']->get_length() ?: $default['length'],
+                    'width' => ( float ) $item['data']->get_width() ?: $default['width'],
+                    'height' => ( float ) $item['data']->get_height() ?: $default['height'],
+                    'weight' => ( float ) $item['data']->get_weight() ?: $default['weight'],
+                    'weightUnit'        => 'Kilograms',
+                    'measureUnit'       => 'CM',
+                ];
+            }
+        }
+
+        BBAM_Utils::logger($payload, 'CALCULATE API REQUEST PAYLOAD', 'bba-api-calculate-api-request');
+        $response = $api->sendApiRequest('POST', 'packaging/packaging/calculate', [], $payload, true);
+        BBAM_Utils::logger($response, 'CALCULATE API RESPONSE', 'bba-api-calculate-api-request');
+        
+        $selectedPackaging = $response[0];
+        BBAM_Utils::logger($selectedPackaging, 'RAW SELECTED PACKAGING DATA', 'bba-api-calculate-api-request');
+
+        
+        $packaging = [];
+        foreach ($selectedPackaging->packaging as $pkg) {
+            $packaging[] = [
+                'length'   => ( float ) $pkg->length,
+                'width'    => ( float ) $pkg->width,
+                'height'   => ( float ) $pkg->height,
+                'weight'   => ( float ) $pkg->maxWeight,
+                'quantity' => ( int ) $pkg->qty,
+                'weightUnit' => $pkg->weightUnit,
+                'measureUnit' => $pkg->measureUnit,
+                'contentWeight' => ( float ) $pkg->contentWeight
+            ];
+        }
+        
+
+
+        BBAM_Utils::logger($packaging, 'SELECTED PACKAGING', 'bba-api-calculate-api-request');
+        return $packaging;
     }
 
     private function generateItemData($item, $default) {

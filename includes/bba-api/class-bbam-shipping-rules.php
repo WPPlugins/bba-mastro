@@ -38,6 +38,10 @@ class BBAM_ShippingRules extends WC_Shipping_Method{
         try {
             $shippingCalcualtor = new BBAM_Shipping_Calculator();
             $params = $shippingCalcualtor->generateGetQuotesParams($package);
+            $packaging = $shippingCalcualtor->calculatePackaging($package);
+            
+            $params['packages'] = $packaging;
+
             $quotes = $shippingCalcualtor->getQuotes($params);
             
             if ($quotes) {
