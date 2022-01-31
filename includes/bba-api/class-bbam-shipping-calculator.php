@@ -80,7 +80,11 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
                 ];
             }
         }
-
+        
+        if (count($payload) < 1) {
+            return [];
+        }
+        
         BBAM_Utils::logger($payload, 'CALCULATE API REQUEST PAYLOAD', 'bba-api-calculate-api-request');
         $response = $api->sendApiRequest('POST', 'packaging/packaging/calculate', [], $payload, true);
         BBAM_Utils::logger($response, 'CALCULATE API RESPONSE', 'bba-api-calculate-api-request');
@@ -102,8 +106,6 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
                 'contentWeight' => ( float ) $pkg->contentWeight
             ];
         }
-        
-
 
         BBAM_Utils::logger($packaging, 'SELECTED PACKAGING', 'bba-api-calculate-api-request');
         return $packaging;
@@ -163,6 +165,12 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
         $rates = [];
         if(is_array($response) || is_object($response)) {
             if(!empty($response)){
+                # todo: need to check this one here
+                usort($response, function($a, $b) {
+                    return ($a->amount < $b->amount) ? -1 : 1;
+                });
+
+
                 foreach($response as $carrier) {
                     if(!is_string($carrier) && !is_null($carrier)) {
                         $carrierProfileId = $carrier->carrierProfileId;
@@ -195,6 +203,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
                 }
             }
         }
+
         return $rates;
     }
 }

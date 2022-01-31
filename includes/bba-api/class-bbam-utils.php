@@ -188,4 +188,15 @@ class BBAM_Utils {
         self::logger($shippingData, 'Webhook Payload', 'bba-webhook-payload');
         return $payload;
     }
+
+    public static function getShippingMethodIndex($rates, $shipping_method) {
+        $index = 0;
+        foreach($rates as $rate_id => $rate) {
+            $index += 1;
+            if ($rate->method_id === $shipping_method) {
+                return $index - 1;
+            }
+        }
+        return -1;
+    }
 }

@@ -6,6 +6,13 @@
         'default' => 'no',
     );
 
+    $settings['show_flat_rate'] = array(
+        'title'   => __('Show Flat Rate'),
+        'type'    => 'checkbox',
+        'label'   => __('Show flat rate together with bba quotes'),
+        'default' => 'yes'
+    );
+
     $settings['api_credentials'] = array(
         'title' => __( 'API Credentials', 'bbamastro' ),
         'type'  => 'title',

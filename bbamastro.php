@@ -2,7 +2,7 @@
 /**
  * Plugin Name: BBA Mastro
  * Description: Multi Carrier Shipping and Logistics Technology able to seamlessly integrate into your Woo cart.
- * Version: 2.4
+ * Version: 2.4.1
  * Author: BBA Mastro
  * Author URI: https://bbamastro.com
  * @package BBA Mastro
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('BBAMastro')) {
   final class BBAMastro {
-    public $version = '2.4';
+    public $version = '2.4.1';
     public static $bbamTrackingConsignmentInstance;
     public static $bbam_excluded_categories_ins;
     protected static $usInstance = null;
@@ -81,6 +81,7 @@ if (!class_exists('BBAMastro')) {
         add_action('woocommerce_webhook_payload', ['BBAM_Utils', 'generateWebhookPayload']);
         add_filter('woocommerce_rest_prepare_product_object', ['BBAM_Utils', 'prepareProducts']);
         add_filter('woocommerce_default_address_fields', ['BBAMastro', 'reorderCheckoutFields']);
+        add_filter('woocommerce_package_rates', ['BBAMastro', 'hideFlatRate']);
 
         // Initialize Tracking ID and Consigment ID Fields
         self::$bbamTrackingConsignmentInstance = new BBAM_TrackingIdAndConsignmentIdFields(self::pluginPath());
@@ -120,6 +121,26 @@ if (!class_exists('BBAMastro')) {
       BBAM_Utils::defineConstantIfNotExists('BBAMASTRO_PLUGIN_FILE', __FILE__);
       BBAM_Utils::defineConstantIfNotExists('BBAMASTRO_PLUGIN_BASENAME', plugin_basename(__FILE__));
       BBAM_Utils::defineConstantIfNotExists('BBAMASTRO_VERSION', $this->version);
+    }
+
+    public static function hideFlatRate($rates) {      
+      $show_flat_rate = BBAM_Utils::getConfig('show_flat_rate');
+      $bba_mastro_rules_index = BBAM_Utils::getShippingMethodIndex($rates, 'bbamastro_rules');
+      $flat_rate_quote_index = BBAM_Utils::getShippingMethodIndex($rates, 'flat_rate');
+      
+      if ($show_flat_rate === 'no' && $bba_mastro_rules_index != -1 && $flat_rate_found != -1) {
+        $new_rates = array();
+
+        foreach($rates as $rate_id => $rate) {
+          if ($rate->method_id !== 'flat_rate') {
+            $new_rates[$rate_id] = $rate; 
+          }
+        }
+
+        return $new_rates;
+      }
+
+      return $rates;
     }
   }
 }
