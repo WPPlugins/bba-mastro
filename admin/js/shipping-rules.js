@@ -5,6 +5,8 @@ jQuery(function($){
         'demo': 'https://api-demo.bbamastro.com',
         'prod': 'https://api.bbamastro.com',
         'azure': 'https://api-azure.bbamastro.com',
+        'uk': 'https://api-uk.bbamastro.com',
+        'us': 'https://api-us.bbamastro.com'
     };
 
     const authUrls = {
@@ -12,7 +14,9 @@ jQuery(function($){
         'staging': 'https://auth-staging.bbamastro.com/oauth/token',
         'demo': 'https://auth-demo.bbamastro.com/oauth/token',
         'prod': 'https://auth.bbamastro.com/oauth/token',
-        'azure': 'https://auth-azure.bbamastro.com/oauth/token'
+        'azure': 'https://auth-azure.bbamastro.com/oauth/token',
+        'uk': 'https://auth-uk.bbamastro.com/oauth/token',
+        'us': 'https://auth-us.bbamastro.com/oauth/token'
     };
     
     const apiOptions = {
@@ -22,7 +26,9 @@ jQuery(function($){
                 { id: apiUrls.staging, text: apiUrls.staging }, 
                 { id: apiUrls.demo, text: apiUrls.demo }, 
                 { id: apiUrls.prod, text: apiUrls.prod },
-                { id: apiUrls.azure, text: apiUrls.azure }
+                { id: apiUrls.azure, text: apiUrls.azure },
+                { id: apiUrls.uk, text: apiUrls.uk },
+                { id: apiUrls.us, text: apiUrls.us }
             ]
     };
 
@@ -46,6 +52,12 @@ jQuery(function($){
                     break;
                 case apiUrls.azure: 
                     $(authUrl).val(authUrls.azure)
+                    break;
+                case apiUrls.uk: 
+                    $(authUrl).val(authUrls.uk);
+                    break;
+                case apiUrls.us: 
+                    $(authUrl).val(authUrls.us)
                     break;
             }
         });
