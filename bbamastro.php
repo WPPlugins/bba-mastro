@@ -2,7 +2,7 @@
 /**
  * Plugin Name: BBA Mastro
  * Description: Multi Carrier Shipping and Logistics Technology able to seamlessly integrate into your Woo cart.
- * Version: 2.4.2
+ * Version: 2.4.3
  * Author: BBA Mastro
  * Author URI: https://bbamastro.com
  * @package BBA Mastro
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('BBAMastro')) {
   final class BBAMastro {
-    public $version = '2.4.2';
+    public $version = '2.4.3';
     public static $bbamTrackingConsignmentInstance;
     public static $bbam_excluded_categories_ins;
     protected static $usInstance = null;

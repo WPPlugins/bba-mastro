@@ -46,6 +46,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
             }
         }
 
+        // todo: need to fix this one here
         $params['packages'] = [];
         foreach($package['contents'] as $item) {
             $terms_list = wp_get_post_terms($item['product_id'], 'product_cat');
@@ -89,6 +90,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
         $response = $api->sendApiRequest('POST', 'packaging/packaging/calculate', [], $payload, true);
         BBAM_Utils::logger($response, 'CALCULATE API RESPONSE', 'bba-api-calculate-api-request');
         
+        if (!is_array($response)) { return []; }
         $selectedPackaging = $response[0];
         BBAM_Utils::logger($selectedPackaging, 'RAW SELECTED PACKAGING DATA', 'bba-api-calculate-api-request');
 
