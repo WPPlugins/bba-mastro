@@ -41,9 +41,15 @@ class BBAM_ShippingRules extends WC_Shipping_Method{
             $packaging = $shippingCalcualtor->calculatePackaging($package);
             
             $params['packages'] = $packaging;
-
             $quotes = $shippingCalcualtor->getQuotes($params);
-            
+
+            if (BBAM_Utils::getConfig('sort_quotes') == 'yes') {
+               usort($quotes, function($a, $b) {
+                    if ($a['cost'] === $b['cost']) return 0;
+                    return ($a['cost'] < $b['cost']) ? -1 : 1;
+               });
+            }
+
             if ($quotes) {
                 foreach($quotes as $q) {
                     $this->add_rate($q);

@@ -13,6 +13,27 @@
         'default' => 'yes'
     );
 
+    $settings['enable_debug_log'] = array(
+        'title'   => __('Debugger Log'),
+        'type'    => 'checkbox',
+        'label'   => __('Enable debugger logs.'),
+        'default' => 'no'
+    );
+
+    $settings['use_new_api'] = array(
+        'title'   => __('New Quote API'),
+        'type'    => 'checkbox',
+        'label'   => __('Use new API to show only cheapest/fastest quotes'),
+        'default' => 'no'
+    );
+
+    $settings['sort_quotes'] = array(
+        'title'   => __('Sort Quotes'),
+        'type'    => 'checkbox',
+        'label'   => __('Sort quotes from lowest to highest price'),
+        'default' => 'no'
+    );
+
     $settings['api_credentials'] = array(
         'title' => __( 'API Credentials', 'bbamastro' ),
         'type'  => 'title',

@@ -133,10 +133,13 @@ class BBAM_Utils {
     }
 
     public static function logger($logData, $label, $source, $varDump = false){
-        $logger = wc_get_logger();
-        $context = ['source' => $source];
-        $logger->debug("--------------------------$label--------------------------------", $context);
-        $logger->debug($varDump ? var_dump($logData) : json_encode($logData), $context);
+        $enableLogging = self::getConfig('enable_debug_log', false);
+        if ($enableLogging) {
+            $logger = wc_get_logger();
+            $context = ['source' => $source];
+            $logger->debug("--------------------------$label--------------------------------", $context);
+            $logger->debug($varDump ? var_dump($logData) : json_encode($logData), $context);
+        }
     }
 
     public static function prepareProducts($response) {

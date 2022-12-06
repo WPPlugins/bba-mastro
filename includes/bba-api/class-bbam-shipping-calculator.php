@@ -129,7 +129,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
     }
 
     private function is_in_excluded_categories($terms_list) {
-        $excluded_cat_str = BBAM_Utils::getConfig('excluded_categories'); // todo: need to change this one
+        $excluded_cat_str = BBAM_Utils::getConfig('excluded_categories');
         $excluded_cat_array = explode(',', strtolower($excluded_cat_str));
         
         foreach ($terms_list as $category) {
@@ -158,50 +158,76 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
         if(BBAM_Utils::getConfig('enabled') == 'yes') {
             $api = new BBAM_Api();
 			BBAM_Utils::logger($params, 'QUOTE REQUEST PAYLOAD', 'bba-api-quote-request-payload');
-            $response = $api->sendApiRequest('POST', 'carrier/quote', [], $params, true);
-            return $this->parseQuotes($response);
+
+            if(BBAM_Utils::getConfig('use_new_api') == 'yes') {
+                $response = $api->sendApiRequest('POST', 'carrier/quote-seq', [], $params, true);
+                BBAM_Utils::logger($response, 'QUOTE RAW RESPONSE', 'bba-api-quote-raw-response');
+                return $this->parseNewAPIQuotes($response);
+            } else {
+                $response = $api->sendApiRequest('POST', 'carrier/quote', [], $params, true);
+                return $this->parseOldAPIQuotes($response);
+            }
         }
     }
 
-    private function parseQuotes($response){
+    private function parseNewAPIQuotes($response) {
         $rates = [];
-        if(is_array($response) || is_object($response)) {
+        if (is_array($response)) {
+            if (!empty($response)) {
+                for ($i = 0; $i < count($response); $i++) {
+                    $carrier = $response[$i];
+
+                    $displayName = $carrier->name;
+                    $carrierProfileId = $carrier->carrierProfileId;
+                    $serviceProfileId = $carrier->serviceProfileId;
+                    $eta = $carrier->eta;
+                    $cost = $carrier->amount;
+                    $tax = $carrier->tax;
+                    $currency = $carrier->currency;
+
+                    $label = $displayName.' ['.$eta.']'.'[Tax: '.$currency.' $'. $tax .' ]';
+
+                    $rates[] = [
+                        'id' => $carrierProfileId . '_' . $serviceProfileId,
+                        'label' => $label,
+                        'cost' => $cost,
+                        'meta_data' => [
+                            'shipping_method' => $carrierProfileId . '_' . $serviceProfileId,
+                        ]
+                    ];
+                }
+            }
+        }
+
+        return $rates;
+    }
+
+    private function parseOldAPIQuotes($response){
+        $rates = [];
+        if(is_array($response)) {
             if(!empty($response)){
-                # todo: need to check this one here
-                usort($response, function($a, $b) {
-                    return ($a->amount < $b->amount) ? -1 : 1;
-                });
+                for ($i = 0; $i < count($response); $i++) {
+                    $carrier = $response[$i];
+                    $serviceProfileName = $carrier->serviceProfileName;
+                    $displayName = $carrier->displayName;
+                    $carrierProfileId = $carrier->carrierProfileId;
+                    $serviceProfileId = $carrier->serviceProfileId;
+                    $eta = $carrier->eta;
+                    $cost = $carrier->amount;
+                    $tax = $carrier->tax;
+                    $currency = $carrier->currency;
+                    
+                    $label = $displayName ? $displayName : $serviceProfileName;
+                    $label = $label.' ['.$eta.']'.'[Tax: '.$currency .' $'. $tax .' ]';
 
-
-                foreach($response as $carrier) {
-                    if(!is_string($carrier) && !is_null($carrier)) {
-                        $carrierProfileId = $carrier->carrierProfileId;
-                        $carrierName = $carrier->carrierName;
-                        $currency = $carrier->currency;
-                        $eta = $carrier->eta;
-                        $amount = $carrier->amount;
-                        $tax = $carrier->tax;
-
-
-                        $serviceProfileId = $carrier->serviceProfileId;
-                        $serviceProfileName = $carrier->serviceProfileName;
-						$label = $carrierName;
-						
-						if ($carrier->operation) {
-							$label = $label . '['.$carrier->operation->name.']';
-						}
-						
-						$label = $label . ' [' . $serviceProfileName . '] [' . $eta . '] [Tax: '  . $currency . ' $' . $tax . ' ]';
-
-                        $rates[] = [
-                            'id'    => $carrierProfileId . '_' . $serviceProfileId,
-                            'label' => $label,
-                            'cost'  => $amount,
-                            'meta_data' => array(
-                                'shipping_method' => $carrierProfileId . '_' . $serviceProfileId,
-                            )
-                        ];
-                    }
+                    $rates[] = [
+                        'id' => $carrierProfileId . '_' . $serviceProfileId,
+                        'label' => $label,
+                        'cost' => $cost,
+                        'meta_data' => [
+                            'shipping_method' => $carrierProfileId . '_' . $serviceProfileId,
+                        ]
+                    ];
                 }
             }
         }
