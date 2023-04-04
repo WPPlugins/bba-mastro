@@ -71,13 +71,13 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
             if($item['data']->needs_shipping() && !$excluded){
                 $payload[] = [
                     'id' => null,
-                    'quantity' => (int) $item['quantity'],
+                    'quantity' => (int) $item['quantity'], # todo: need to fix this one here
                     'length' => ( float ) $item['data']->get_length() ?: $default['length'],
                     'width' => ( float ) $item['data']->get_width() ?: $default['width'],
                     'height' => ( float ) $item['data']->get_height() ?: $default['height'],
                     'weight' => ( float ) $item['data']->get_weight() ?: $default['weight'],
-                    'weightUnit'        => 'Kilograms',
-                    'measureUnit'       => 'CM',
+                    'weightUnit' => 'Kilograms',
+                    'measureUnit'=> 'CM',
                 ];
             }
         }
@@ -85,7 +85,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
         if (count($payload) < 1) {
             return [];
         }
-        
+
         BBAM_Utils::logger($payload, 'CALCULATE API REQUEST PAYLOAD', 'bba-api-calculate-api-request');
         $response = $api->sendApiRequest('POST', 'packaging/packaging/calculate', [], $payload, true);
         BBAM_Utils::logger($response, 'CALCULATE API RESPONSE', 'bba-api-calculate-api-request');
@@ -101,7 +101,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
                 'length'   => ( float ) $pkg->length,
                 'width'    => ( float ) $pkg->width,
                 'height'   => ( float ) $pkg->height,
-                'weight'   => ( float ) $pkg->contentWeight,
+                'weight'   => ( float ) $pkg->maxWeight,
                 'quantity' => ( int ) $pkg->qty,
                 'weightUnit' => $pkg->weightUnit,
                 'measureUnit' => $pkg->measureUnit,
