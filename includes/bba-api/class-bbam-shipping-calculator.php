@@ -101,7 +101,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
                 'length'   => ( float ) $pkg->length,
                 'width'    => ( float ) $pkg->width,
                 'height'   => ( float ) $pkg->height,
-                'weight'   => ( float ) $pkg->maxWeight,
+                'weight'   => ( float ) $pkg->contentWeight,
                 'quantity' => ( int ) $pkg->qty,
                 'weightUnit' => $pkg->weightUnit,
                 'measureUnit' => $pkg->measureUnit,
@@ -123,8 +123,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
             'weight' => ( float ) $item['data']->get_weight() ?: $default['weight'],
             "code" => "TST",
             'weightUnit'        => 'Kilograms',
-            'measureUnit'       => 'CM',
-            'currency'          => 'USD'
+            'measureUnit'       => 'CM'
         ];
     }
 
