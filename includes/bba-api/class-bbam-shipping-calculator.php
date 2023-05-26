@@ -101,7 +101,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api{
                 'length'   => ( float ) $pkg->length,
                 'width'    => ( float ) $pkg->width,
                 'height'   => ( float ) $pkg->height,
-                'weight'   => ( float ) $pkg->maxWeight,
+                'weight'   => ( float ) $pkg->maxWeight, // todo: need to fix this one here
                 'quantity' => ( int ) $pkg->qty,
                 'weightUnit' => $pkg->weightUnit,
                 'measureUnit' => $pkg->measureUnit,
