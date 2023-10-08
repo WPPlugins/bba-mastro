@@ -6,6 +6,13 @@
         'default' => 'no',
     );
 
+    $settings['format_quote_names'] = array(
+        'title'   => __('Format Quote Names'),
+        'type'    => 'checkbox',
+        'label'   => __('Show formatted quote (Carrier, ETA, and Price only)'),
+        'default' => 'yes' 
+    );
+
     $settings['show_flat_rate'] = array(
         'title'   => __('Show Flat Rate'),
         'type'    => 'checkbox',

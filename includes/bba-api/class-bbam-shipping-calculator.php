@@ -201,8 +201,13 @@ class BBAM_Shipping_Calculator extends BBAM_Api
                     $cost = $carrier->amount;
                     $tax = $carrier->tax;
                     $currency = $carrier->currency;
-
-                    $label = $displayName . ' [' . $eta . ']' . '[Tax: ' . $currency . ' $' . $tax . ' ]';
+ 
+                    $isFormattedName = BBAM_Utils::getConfig('format_quote_names');
+                    if ($isFormattedName === 'yes') {
+                        $label = $carrier->name . ', ' . $eta;
+                    } else {
+                        $label = $displayName . ' [' . $eta . ']' . '[Tax: ' . $currency . ' $' . $tax . ' ]';
+                    }
 
                     $rates[] = [
                         'id' => $carrierProfileId . '_' . $serviceProfileId,
@@ -236,7 +241,13 @@ class BBAM_Shipping_Calculator extends BBAM_Api
                     $currency = $carrier->currency;
 
                     $label = $displayName ? $displayName : $serviceProfileName;
-                    $label = $label . ' [' . $eta . ']' . '[Tax: ' . $currency . ' $' . $tax . ' ]';
+
+                    $isFormattedName = BBAM_Utils::getConfig('format_quote_names');
+                    if ($isFormattedName === 'yes') {
+                        $label = $carrier->carrierProfileName . ', ' . $eta;
+                    } else {
+                        $label = $label . ' [' . $eta . ']' . '[Tax: ' . $currency . ' $' . $tax . ' ]';
+                    }
 
                     $rates[] = [
                         'id' => $carrierProfileId . '_' . $serviceProfileId,
