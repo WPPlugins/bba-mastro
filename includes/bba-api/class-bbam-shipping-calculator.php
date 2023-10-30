@@ -109,18 +109,20 @@ class BBAM_Shipping_Calculator extends BBAM_Api
                 ];
             }
         } else {
-            $selected_packaging = $packaging_data[0];
-            foreach ($selected_packaging->packaging as $pkg) {
-                $packaging[] = [
-                    'length'   => (float) $pkg->length,
-                    'width'    => (float) $pkg->width,
-                    'height'   => (float) $pkg->height,
-                    'weight'   => (float) $pkg->maxWeight,
-                    'quantity' => (int) $pkg->qty,
-                    'weightUnit' => $pkg->weightUnit,
-                    'measureUnit' => $pkg->measureUnit,
-                    'contentWeight' => (float) $pkg->contentWeight
-                ];
+            if (is_array($packaging_data)) {
+                $selected_packaging = $packaging_data[0];
+                foreach ($selected_packaging->packaging as $pkg) {
+                    $packaging[] = [
+                        'length'   => (float) $pkg->length,
+                        'width'    => (float) $pkg->width,
+                        'height'   => (float) $pkg->height,
+                        'weight'   => (float) $pkg->maxWeight,
+                        'quantity' => (int) $pkg->qty,
+                        'weightUnit' => $pkg->weightUnit,
+                        'measureUnit' => $pkg->measureUnit,
+                        'contentWeight' => (float) $pkg->contentWeight
+                    ];
+                }
             }
         }
         return $packaging;
@@ -201,7 +203,7 @@ class BBAM_Shipping_Calculator extends BBAM_Api
                     $cost = $carrier->amount;
                     $tax = $carrier->tax;
                     $currency = $carrier->currency;
- 
+
                     $isFormattedName = BBAM_Utils::getConfig('format_quote_names');
                     if ($isFormattedName === 'yes') {
                         $label = $carrier->name . ', ' . $eta;

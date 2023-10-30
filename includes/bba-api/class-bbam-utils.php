@@ -188,6 +188,18 @@ class BBAM_Utils {
                 $payload['sku'] = $payload['id'];
             }
         } 
+
+        if (!empty($payload['meta_data'])) {
+            $newMetaData  = [];
+            $metaData = $payload['meta_data'];
+            foreach ($metaData as $value) {
+                if (is_string($value['value'])) {
+                    $newMetaData[] = $value;
+                }
+            }
+            $payload['meta_data'] = $newMetaData;
+        }
+
         self::logger($shippingData, 'Webhook Payload', 'bba-webhook-payload');
         return $payload;
     }
