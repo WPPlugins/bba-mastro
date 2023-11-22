@@ -41,6 +41,36 @@
         'default' => 'no'
     );
 
+    $settings['goods_check_settings'] = array(
+        'title' => __('Goods Check Settings'),
+        'type'  => 'title'
+    );
+
+    $settings['show_goods_check'] = array(
+        'title'   => __('Show Goods Check'),
+        'type'    => 'checkbox',
+        'label'   => __('Show goods check in the cart and checkout page'),
+        'default' => 'no'
+    );
+
+    $settings['is_residential'] = array(
+        'title' => __('Enable'),
+        'type'  => 'checkbox',
+        'label' => __('Residential Delivery'),
+        'description' => __('Make residential delivery the default setting'),
+        'desc_tip'    => true,
+        'default'    => 'no'
+    );
+
+    $settings['is_tailgate'] = array(
+        'title' => __('Enable'),
+        'type'  => 'checkbox',
+        'label' => __('Tailgate Delivery'),
+        'description' => __('Make taigate delivery the default setting'),
+        'desc_tip'    => true,
+        'default'    => 'no'
+    );
+
     $settings['api_credentials'] = array(
         'title' => __( 'API Credentials', 'bbamastro' ),
         'type'  => 'title',

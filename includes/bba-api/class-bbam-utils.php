@@ -1,60 +1,67 @@
 <?php
 // Exit if accessed directly.
-if ( ! defined( 'ABSPATH' ) ) {
+if (!defined('ABSPATH')) {
     exit;
 }
 
-class BBAM_Utils {
-    public static function getConfig($key, $default = null){
+class BBAM_Utils
+{
+    public static function getConfig($key, $default = null)
+    {
         $settings = get_option('woocommerce_bbamastro_rules_settings', null);
-        if(is_array($settings) && !empty($settings[$key])) {
+        if (is_array($settings) && !empty($settings[$key])) {
             return $settings[$key];
         }
         return $default;
     }
 
-    public static function setHeaderOriginValue() { 
+    public static function setHeaderOriginValue()
+    {
         $apiUrl = self::getConfig('api_url', null);
-        switch($apiUrl) {
+        switch ($apiUrl) {
             case "https://api-dev.bbamastro.com":
                 return "https://dashboard-dev.bbamastro.com";
                 break;
-            case "https://api-staging.bbamastro.com": 
+            case "https://api-staging.bbamastro.com":
                 return "https://dashboard-staging.bbamastro.com";
                 break;
-            case "https://api-demo.bbamastro.com": 
+            case "https://api-demo.bbamastro.com":
                 return "https://dashboard-demo.bbamastro.com";
                 break;
-            case "https://api.bbamastro.com": 
+            case "https://api.bbamastro.com":
                 return "https://dashboard.bbamastro.com";
                 break;
         }
     }
 
-    public static function trimAction($action){
-        if ( $action ) {
-            $action = '/' . trim( $action, '/' ) . '/';
+    public static function trimAction($action)
+    {
+        if ($action) {
+            $action = '/' . trim($action, '/') . '/';
         }
         return $action;
     }
 
-    public static function createUrlQuery($vars = []) {
+    public static function createUrlQuery($vars = [])
+    {
         $result = [];
-        foreach($vars as $name=>$value) {
-            $result[] = $name.'='.$value;
+        foreach ($vars as $name => $value) {
+            $result[] = $name . '=' . $value;
         }
         return $result;
     }
 
-    public static function woocommerceEnabled(){
+    public static function woocommerceEnabled()
+    {
         return class_exists('woocommerce') ? true : false;
     }
 
-    public static function addTaxonomy($taxonomy){
+    public static function addTaxonomy($taxonomy)
+    {
         global $wpdb;
         $attributeTaxonomyName =  wc_attribute_taxonomy_name($taxonomy);
 
-        if(!taxonomy_exists($attributeTaxonomyName)) {
+        if (!taxonomy_exists($attributeTaxonomyName)) {
             $attribute = [];
             $attribute['attribute_label'] = "Country of Manufacturer";
             $attribute['attribute_name'] = $taxonomy;
@@ -63,35 +70,36 @@ class BBAM_Utils {
             $attribute['attribute_public'] = 0;
 
             $result = $wpdb->insert($wpdb->prefix . 'woocommerce_attribute_taxonomies', $attribute);
-            if($result !== false) {
-                do_action( 'woocommerce_attribute_added', $wpdb->insert_id, $attribute );
+            if ($result !== false) {
+                do_action('woocommerce_attribute_added', $wpdb->insert_id, $attribute);
                 flush_rewrite_rules();
-                delete_transient( 'wc_attribute_taxonomies' );
+                delete_transient('wc_attribute_taxonomies');
             } else {
                 // TODO: LOG ERROR 
             }
         }
     }
 
-    public static function addTerms($taxonomy){
+    public static function addTerms($taxonomy)
+    {
         $taxonomy =  wc_attribute_taxonomy_name($taxonomy);
-        if(taxonomy_exists($taxonomy)) {
+        if (taxonomy_exists($taxonomy)) {
             $queries = [
                 'type' => 'select',
-                'orderBy' => 'name', 
+                'orderBy' => 'name',
                 'slug' => 'manufacturer'
             ];
-            
+
             $api = new BBAM_Api();
             $terms = $api->sendApiRequest('GET', 'address/country', $queries);
-            if(!empty($terms) && is_array($terms)) {
-                foreach($terms as $term) {
-                    if(!strlen(trim($term->name)) || !strlen(trim($term->code))){
+            if (!empty($terms) && is_array($terms)) {
+                foreach ($terms as $term) {
+                    if (!strlen(trim($term->name)) || !strlen(trim($term->code))) {
                         continue;
                     }
 
-                    if(!term_exists($term->code, $taxonomy)) {
-                        wp_insert_term($term->code,$taxonomy, array("description"=> $term->code,"slug"=>$term->code));
+                    if (!term_exists($term->code, $taxonomy)) {
+                        wp_insert_term($term->code, $taxonomy, array("description" => $term->code, "slug" => $term->code));
                     }
                 }
                 //TODO: NEED TO RESEARCH ON THIS ONE
@@ -101,26 +109,29 @@ class BBAM_Utils {
         }
     }
 
-    public static function checkRequestType($type){
-        switch ( $type ) {
-            case 'admin' :
+    public static function checkRequestType($type)
+    {
+        switch ($type) {
+            case 'admin':
                 return is_admin();
-            case 'ajax' :
-                return defined( 'DOING_AJAX' );
-            case 'cron' :
-                return defined( 'DOING_CRON' );
-            case 'frontend' :
-                return ( ! is_admin() || defined( 'DOING_AJAX' ) ) && ! defined( 'DOING_CRON' );
+            case 'ajax':
+                return defined('DOING_AJAX');
+            case 'cron':
+                return defined('DOING_CRON');
+            case 'frontend':
+                return (!is_admin() || defined('DOING_AJAX')) && !defined('DOING_CRON');
         }
     }
 
-    public static function defineConstantIfNotExists($name, $value){
-        if(!defined($name)) {
+    public static function defineConstantIfNotExists($name, $value)
+    {
+        if (!defined($name)) {
             define($name, $value);
         }
     }
 
-    public static function includeBbaClass() {
+    public static function includeBbaClass()
+    {
         require_once "class-bbam-api.php";
         require_once "class-bbam-shipping-rules.php";
         require_once "class-bbam-install.php";
@@ -132,7 +143,8 @@ class BBAM_Utils {
         require_once "class-bbam-excluded-categories.php";
     }
 
-    public static function logger($logData, $label, $source, $varDump = false){
+    public static function logger($logData, $label, $source, $varDump = false)
+    {
         $enableLogging = self::getConfig('enable_debug_log', false);
         if ($enableLogging) {
             $logger = wc_get_logger();
@@ -142,21 +154,23 @@ class BBAM_Utils {
         }
     }
 
-    public static function prepareProducts($response) {
+    public static function prepareProducts($response)
+    {
         $data = $response->get_data();
-        if(empty($data['sku'])){
+        if (empty($data['sku'])) {
             $data['sku'] = $data['id'];
             $response->set_data($data);
         }
         return $response;
     }
 
-    public static function generateWebhookPayload($payload){
-        if($payload['order_key']){
+    public static function generateWebhookPayload($payload)
+    {
+        if ($payload['order_key']) {
             $shippingData = $payload['shipping_lines'][0]['meta_data'][0];
             self::logger($shippingData, 'Shipping Data', 'bba-webhook-payload');
 
-            if(is_object($shippingData)) {
+            if (is_object($shippingData)) {
                 $shipping = $shippingData->get_data();
                 $payload['shipping_lines'][0]['method_id'] = $shipping['value'];
             } else {
@@ -164,7 +178,7 @@ class BBAM_Utils {
             }
 
             if (!empty($payload['line_items'])) {
-                foreach($payload['line_items'] as $value) {
+                foreach ($payload['line_items'] as $value) {
                     $product = wc_get_product($value['product_id']);
                     $categories = $product->get_categories();
                     // $dimensions = $product->get_dimensions();
@@ -172,46 +186,71 @@ class BBAM_Utils {
                     // array_push($payload['product_dimensions'], $dimensions);
 
                     if (is_array($categories)) {
-                        foreach($categories as $cat) {
+                        foreach ($categories as $cat) {
                             array_push($payload['product_categories'], strip_tags($cat));
                         }
                     } else {
                         array_push($payload['product_categories'], strip_tags($categories));
                     }
-                     
+
                     self::logger($shippingData, 'Product Categories', 'bba-webhook-payload-product-cat');
                 }
             }
-        }
-        else if($payload['name']){
-            if(empty($payload['sku'])){
+
+            if (!empty($payload['meta_data'])) {
+                $newMetaData  = [];
+                $metaData = $payload['meta_data'];
+                foreach ($metaData as $value) {
+                    if (is_string($value['value'])) {
+                        if ($value['key'] === 'residential_delivery') {                        
+                            $value['value'] = $value['value'] === '1' ? "true" : "false";
+                            $newMetaData[] = $value;
+                            continue;
+                        }
+
+                        if ($value['key'] === 'tail_gate_delivery') {
+                            $value['value'] = $value['value'] === '1' ? "true" : "false";
+                            $newMetaData[] = $value;
+                            continue;
+                        }
+    
+                        $newMetaData[] = $value;
+                    }
+                }
+
+                $payload['meta_data'] = $newMetaData;
+                self::logger($metaData, 'Meta Data', 'bba-meta-data');
+
+            }
+        } else if ($payload['name']) {
+            if (empty($payload['sku'])) {
                 $payload['sku'] = $payload['id'];
             }
-        } 
-
-        if (!empty($payload['meta_data'])) {
-            $newMetaData  = [];
-            $metaData = $payload['meta_data'];
-            foreach ($metaData as $value) {
-                if (is_string($value['value'])) {
-                    $newMetaData[] = $value;
-                }
-            }
-            $payload['meta_data'] = $newMetaData;
         }
-
         self::logger($shippingData, 'Webhook Payload', 'bba-webhook-payload');
+
         return $payload;
     }
 
-    public static function getShippingMethodIndex($rates, $shipping_method) {
+    public static function getShippingMethodIndex($rates, $shipping_method)
+    {
         $index = 0;
-        foreach($rates as $rate_id => $rate) {
+        foreach ($rates as $rate_id => $rate) {
             $index += 1;
             if ($rate->method_id === $shipping_method) {
                 return $index - 1;
             }
         }
         return -1;
+    }
+
+    public static function isResidentialDelivery()
+    {
+        return WC()->session->get('residential') === 'true' ? true : false;
+    }
+
+    public static function isTailgateDelivery()
+    {
+        return WC()->session->get('tailgate') === 'true' ? true : false;
     }
 }

@@ -19,7 +19,7 @@ class BBAM_Api extends WC_Cart {
         $this->apiUrl  = BBAM_Utils::getConfig('api_url', null);
     }
     
-    protected function generateCurlRequest($method, $url, $headers = [], $body){
+    protected function generateCurlRequest($method, $url, $body, $headers = []){
         $options = [
             CURLOPT_URL => $url, 
             CURLOPT_RETURNTRANSFER  => true, 
@@ -80,7 +80,7 @@ class BBAM_Api extends WC_Cart {
         array_push($headers, 'Authorization: '.$this->authCode);
         array_push($headers, 'Origin: '.BBAM_Utils::setHeaderOriginValue());
 
-        $this->generateCurlRequest('POST', $this->authUrl, $headers, $body);
+        $this->generateCurlRequest('POST', $this->authUrl, $body, $headers);
         $response = $this->executeCurlSession();
         $this->closeCURLSession();
         $result = json_decode($response);
@@ -109,7 +109,7 @@ class BBAM_Api extends WC_Cart {
             $body = json_encode($params);
         }
 
-        $this->generateCurlRequest($method, $url, $headers, $body);
+        $this->generateCurlRequest($method, $url, $body, $headers);
         $response = $this->executeCurlSession();
         $this->closeCURLSession();
         $result = json_decode($response);
