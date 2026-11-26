@@ -1,4 +1,9 @@
 <?php
+     $settings['quote_display'] = array(
+        'title' => __('Quote Display Settings'),
+        'type'  => 'title'
+    );
+    
     $settings['enabled'] = array(
         'title'   => __( 'Enable', 'bbamastro' ),
         'type'    => 'checkbox',
@@ -20,11 +25,43 @@
         'default' => 'yes'
     );
 
+	$settings['show_tax_rate'] = array(
+        'title'   => __('Show Tax Rate'),
+        'type'    => 'checkbox',
+        'label'   => __('Show Tax rate together with bba quotes'),
+        'default' => 'no'
+    );
+
+    $settings['round_up_quote_values'] = array(
+        'title'   => __('Round Up Prices'),
+        'type'    => 'checkbox',
+        'label'   => __('Round up bba dynamic quotes pricing'),
+        'default' => 'no'
+    );
+
+    $settings['quote_notes'] = array(
+        'title'       => __( 'Cart and Checkout Note', 'bbamastro' ),
+        'type'        => 'text',
+        'default'     => '',
+        'description' => __( 'Note that will be shown on the checkout and cart subtotal section', 'bbamastro' ),
+        'desc_tip'    => true,
+    );
+
+    $settings['debugging_settings'] = array(
+        'title' => __('Debugging Settings'),
+        'type'  => 'title'
+    );
+
     $settings['enable_debug_log'] = array(
-        'title'   => __('Debugger Log'),
+        'title'   => __('Logs'),
         'type'    => 'checkbox',
         'label'   => __('Enable debugger logs.'),
         'default' => 'no'
+    );
+
+    $settings['api_settings'] = array(
+        'title' => __('BBA API Settings'),
+        'type'  => 'title'
     );
 
     $settings['use_new_api'] = array(
@@ -41,34 +78,65 @@
         'default' => 'no'
     );
 
+
+
     $settings['goods_check_settings'] = array(
         'title' => __('Goods Check Settings'),
         'type'  => 'title'
     );
 
-    $settings['show_goods_check'] = array(
-        'title'   => __('Show Goods Check'),
-        'type'    => 'checkbox',
-        'label'   => __('Show goods check in the cart and checkout page'),
-        'default' => 'no'
-    );
-
+    $settings['show_residential_delivery'] = [
+        'title' => __('Show Residential Delivery'),
+        'type' => 'checkbox',
+        'label' => __('Show residential delivery checkbox in the cart and checkout page')
+    ];
     $settings['is_residential'] = array(
-        'title' => __('Enable'),
-        'type'  => 'checkbox',
+        'title' => __('Residential Delivery'),
+        'type'  => 'select',
+        'options' => [
+            'yes' => 'Yes',
+            'no' => 'No'
+        ],
         'label' => __('Residential Delivery'),
         'description' => __('Make residential delivery the default setting'),
         'desc_tip'    => true,
         'default'    => 'no'
     );
 
+	$settings['show_commercial_delivery'] = [
+        'title' => __('Show Commercial/Business'),
+        'type' => 'checkbox',
+        'label' => __('Show Commercial/Business switcher in the cart and checkout page')
+    ];
+    $settings['is_commercial'] = array(
+        'title' => __('Commercial/Business'),
+        'type'  => 'select',
+        'options' => [
+            'yes' => 'Yes',
+            'no' => 'No'
+        ],
+        'label' => __('Commercial/Business'),
+        'description' => __('Make Commercial/Business the default setting'),
+        'desc_tip'    => true,
+        'default'    => 'no'
+    );
+
+    $settings['show_tailgate_delivery'] = [
+        'title' => __('Show Tailgate Delivery'),
+        'type' => 'checkbox',
+        'label' => __('Show tailgate delivery checkbox in the cart and checkout page')
+    ];
     $settings['is_tailgate'] = array(
-        'title' => __('Enable'),
-        'type'  => 'checkbox',
+        'title' => __('Tailgate Delivery'),
+        'type'  => 'select',
+        'options' => [
+            'yes' => 'Yes',
+            'no'  => 'No' 
+        ],
         'label' => __('Tailgate Delivery'),
         'description' => __('Make taigate delivery the default setting'),
         'desc_tip'    => true,
-        'default'    => 'no'
+        'default'    => 'No'
     );
 
     $settings['api_credentials'] = array(
@@ -195,4 +263,5 @@
         'css'         => 'min-width:350px;',
         'default'     => '',
     );
+
     return $settings;

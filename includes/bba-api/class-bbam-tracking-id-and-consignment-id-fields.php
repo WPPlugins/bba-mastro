@@ -7,13 +7,13 @@ class BBAM_TrackingIdAndConsignmentIdFields {
     private $pageId; // page suffix
     private $pluginPath;
     
-    #---- CONSTRUCTOR ----#
+    
     public function __construct($pluginPath) {
         $this->initialize();
         $this->pluginPath = $pluginPath;
     }
 
-    #---- INITIALIZE METHODS ----#
+    
     private function initialize() {
         new BBA_AdminCustomOrderFieldsShopOrder();
         add_option('bba_admin_custom_order_field_next_field_id', 1);
@@ -26,7 +26,7 @@ class BBAM_TrackingIdAndConsignmentIdFields {
         $this->generateFields();
     }
 
-    #---- GENERATE FIELDS ----#
+   
     private function generateFields(){
         if(!get_option('bba_admin_custom_order_fields')) {
             $fields = [
@@ -59,7 +59,7 @@ class BBAM_TrackingIdAndConsignmentIdFields {
         return $next_field_id;
     }
 
-    #---- ADD MENU LINK ----#
+    
     public function addMenuLink(){
         $this->pageId = add_submenu_page(
             'woocommerce',
@@ -75,12 +75,12 @@ class BBAM_TrackingIdAndConsignmentIdFields {
         include $this->pluginPath.'/admin/templates/wc-settings/bba_admin_custom_order_fields.php';
     }
 
-    #---- SAVE DEFAULT FIELDS ----#
+    
     public function saveDefaultFieldValues($post_id, $post){
         if('shop_order' === $post->post_type) {
             foreach($this->getOrderFields($post_id) as $orderField) {
                 if($orderField->default) {
-                    // force unique, because oddly this can be invoked when changing the status of an existing order
+                    
                     add_post_meta( $post_id, $orderField->get_meta_key(), $orderField->default, true );
                 }
             }
@@ -91,10 +91,12 @@ class BBAM_TrackingIdAndConsignmentIdFields {
         $orderFields = array();
         $order = $orderId ? wc_get_order($orderId) : null;
         $customOrderFields = get_option('bba_admin_custom_order_fields');
-        
+
         if(!is_array($customOrderFields)) {
             $customOrderFields = array();
         }
+
+       
 
         foreach($customOrderFields as $fieldId => $field) {
             $orderField = new BBAM_CustomOrderFields($fieldId, $field);
@@ -123,7 +125,7 @@ class BBAM_TrackingIdAndConsignmentIdFields {
         return $orderFields;
     }
 
-    #---- ADD ADDITIONAL FIELDS IN EMAIL ----#
+
     public function addOrderDetailsAfterOrderTableEmails($order, $_, $plain_text){
         $orderFields = $this->getOrderFields($this->getProp($order, 'id'), true);
         if(empty($orderFields)) {

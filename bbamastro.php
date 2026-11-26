@@ -3,7 +3,7 @@
 /**
  * Plugin Name: BBA Mastro
  * Description: Multi Carrier Shipping and Logistics Technology able to seamlessly integrate into your Woo cart.
- * Version: 2.4.12
+ * Version: 2.4.13.3
  * Author: BBA Mastro
  * Author URI: https://bbamastro.com
  * @package BBA Mastro
@@ -18,13 +18,14 @@ if (!defined('ABSPATH')) {
 if (!class_exists('BBAMastro')) {
   final class BBAMastro
   {
-    public $version = '2.4.12';
+    public $version = '2.4.13.3';
     public static $bbamTrackingConsignmentInstance;
     public static $bbam_excluded_categories_ins;
     protected static $usInstance = null;
 
     public function __construct()
     {
+      require_once "includes/bba-api/bbamastro-token.php";
       require_once "includes/bba-api/class-bbam-utils.php";
       $this->initialize();
     }
@@ -42,7 +43,9 @@ if (!class_exists('BBAMastro')) {
       $this->initializeConstants();
       add_action('wp_loaded', ['BBAMastro', 'onWordpressLoaded']);
       add_action('plugins_loaded', ['BBAMastro', 'onPluginLoaded']);
+      add_filter('cron_schedules', ['BBAMastro', 'addCronSchedules']);
       register_activation_hook(__FILE__, ['BBAMastro', 'onPluginActivate']);
+      register_deactivation_hook(__FILE__, ['BBAMastro', 'onPluginDeactivate']);
     }
 
     public static function onPluginActivate()
@@ -74,13 +77,16 @@ if (!class_exists('BBAMastro')) {
           'postcode' => BBAM_Utils::getConfig('warehouse_postcode')
         ]
       ]);
-
       wp_enqueue_script('bbamastro-api');
     }
 
     private static function includePublicJsScripts()
     {
       wp_register_script('bbamastro-cart', self::pluginURL() . '/public/js/bba-cart.js', ['jquery', 'select2'], BBAMASTRO_VERSION);
+      wp_localize_script('bbamastro-cart', 'bbamastro_cart', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce('bbam_independent_quote'),
+      ]);
       wp_enqueue_script('bbamastro-cart');
     }
 
@@ -103,90 +109,384 @@ if (!class_exists('BBAMastro')) {
     {
       if (BBAM_Utils::woocommerceEnabled()) {
         BBAM_Utils::includeBbaClass();
+		  
+		add_filter('woocommerce_shipping_package_name', function ($name, $i, $package) {
+			return 'Shipment';
+		}, 10, 3);
+		  
         add_filter('woocommerce_shipping_methods', ['BBAMastro', 'shippingMethods']);
         add_action('woocommerce_webhook_payload', ['BBAM_Utils', 'generateWebhookPayload']);
         add_filter('woocommerce_rest_prepare_product_object', ['BBAM_Utils', 'prepareProducts']);
         add_filter('woocommerce_default_address_fields', ['BBAMastro', 'reorderCheckoutFields']);
         add_filter('woocommerce_package_rates', ['BBAMastro', 'hideFlatRate']);
 
-        // Initialize Tracking ID and Consigment ID Fields
+        add_action('woocommerce_cart_totals_before_shipping', ['BBAMastro', 'printApiTimings']);
+        add_action('woocommerce_review_order_before_shipping', ['BBAMastro', 'printApiTimings']);
+
         self::$bbamTrackingConsignmentInstance = new BBAM_TrackingIdAndConsignmentIdFields(self::pluginPath());
         self::$bbam_excluded_categories_ins = new BBAAM_ExcludedCategories(self::pluginPath());
 
-        if (BBAM_Utils::getConfig('show_goods_check') === 'yes') {
+        add_action('woocommerce_new_order', ['BBAMastro', 'addGoodsCheckToOrder']);
+        add_action('woocommerce_thankyou', ['BBAMastro', 'removeGoodsCheckSession'], 10, 1);
+
+        
+        add_action('bbam_warm_token', ['BBAMastro', 'warmApiToken']);
+        if (!wp_next_scheduled('bbam_warm_token')) {
+          wp_schedule_event(time() + MINUTE_IN_SECONDS, 'bbam_thirty_minutes', 'bbam_warm_token');
+        }
+
+        if (BBAM_Utils::getConfig('quote_notes')) {
+          add_action('woocommerce_cart_totals_before_shipping', ['BBAMastro', 'addNoteOnCartSubTotalsSection']);
+          add_action('woocommerce_review_order_before_shipping', ['BBAMastro', 'addNoteOnCartSubTotalsSection']);
+        }
+
+        if (BBAM_Utils::getConfig('round_up_quote_values') == 'yes') {
+          add_filter('woocommerce_price_trim_zeros', '__return_true');
+        }
+
+        $tailgate_delivery = BBAM_Utils::getConfig('show_tailgate_delivery');
+        $residential_delivery = BBAM_Utils::getConfig('show_residential_delivery');
+        
+        // todo: need to fix this one here...
+        if ($tailgate_delivery === 'yes' || $residential_delivery === 'yes') {
           add_action('woocommerce_cart_totals_before_shipping', ['BBAMastro', 'addLoadingIndicator']);
-          add_action('woocommerce_cart_totals_before_shipping', ['BBAMastro', 'addGoodsCheckInCartPage']);
+          add_action('woocommerce_cart_totals_before_shipping', ['BBAMastro', 'add_goods_check_in_cart_page']);
 
           add_action('woocommerce_review_order_before_shipping', ['BBAMastro', 'addLoadingIndicator']);
-          add_action('woocommerce_review_order_before_shipping', ['BBAMastro', 'addGoodsCheckInCheckoutPage']);
+          add_action('woocommerce_review_order_before_shipping', ['BBAMastro', 'add_goods_check_in_checkout_page']);
+
+          
 
           add_action('wp_ajax_update_cart', ['BBAMastro', 'updateCartWithGoodsCheck']);
           add_action('wp_ajax_nopriv_update_cart', ['BBAMastro', 'updateCartWithGoodsCheck']);
+          add_action('wp_ajax_bba_independent_quote', ['BBAMastro', 'independentShippingQuote']);
+          add_action('wp_ajax_nopriv_bba_independent_quote', ['BBAMastro', 'independentShippingQuote']);
+        }
 
-          add_action('woocommerce_new_order', ['BBAMastro', 'addGoodsCheckToOrder']);
+        add_action('woocommerce_review_order_before_shipping', ['BBAMastro', 'add_insurance_in_checkout_page']);
+
+        add_action('init', ['BBAMastro', 'check_and_enable_webhook']);
+      }
+    }
+
+    public static function check_and_enable_webhook() 
+    {
+      $data_store = WC_Data_Store::load('webhook');
+      $webhooks = $data_store->search_webhooks(['status' => 'disabled']);
+      $_items = array_map('wc_get_webhook', $webhooks);
+      
+      foreach ($_items as $webhook) {
+        $str_to_check = 'bbamastro';
+        $webhook_delivery_url = $webhook->get_delivery_url();
+        if (strpos($webhook_delivery_url, $str_to_check)) {
+          $webhook->set_status('active');
+          $webhook->save();
         }
       }
     }
 
-    // todo: need to modify this code here
-    public static function addGoodsCheckInCartPage()
+    public static function addCronSchedules($schedules)
     {
-      $isResidentialDelivery = WC()->session->get('residential') === 'false' ? false : true;
-      $isTailgateDelivery = WC()->session->get('tailgate') === 'false' ? false : true;
-
-      echo '<tr><th>Goods Check</th><td>';
-      woocommerce_form_field('residential', [
-        'type' => 'checkbox',
-        'label' => __('Residential Delivery'),
-        'id' => 'bba-residential'
-      ], $isResidentialDelivery);
-
-      echo '<br />';
-
-      woocommerce_form_field('tailgate', [
-        'type' => 'checkbox',
-        'label' => __('Tailgate Delivery'),
-        'id' => 'bba-tailgate'
-      ], $isTailgateDelivery);
-
-      echo '</td></tr>';
-    }
-
-    public static function addGoodsCheckInCheckoutPage()
-    {
-      $isResidentialDelivery = BBAMastro::getResidentialValue();
-      $isTailgateDelivery = BBAMastro::getTailgateDeliveryValue();
-
-      echo '<tr><th>Goods Check</th><td>';
-      woocommerce_form_field('residential', [
-        'type' => 'checkbox',
-        'label' => __('Residential Delivery'),
-        'id' => 'bba-checkout-residential'
-      ], $isResidentialDelivery);
-
-      echo '<br />';
-
-      woocommerce_form_field('tailgate', [
-        'type' => 'checkbox',
-        'label' => __('Tailgate Delivery'),
-        'id' => 'bba-checkout-tailgate'
-      ], $isTailgateDelivery);
-
-      echo '</td></tr>';
-    }
-
-    public static function getResidentialValue() {
-      if (WC()->session->get('residential') === 'null') {
-        return BBAM_Utils::getConfig('is_residential') ;
+      if (!isset($schedules['bbam_thirty_minutes'])) {
+        $schedules['bbam_thirty_minutes'] = [
+          'interval' => 30 * MINUTE_IN_SECONDS,
+          'display'  => __('Every 30 minutes (BBA Mastro)', 'bbamastro'),
+        ];
       }
-      return WC()->session->get('residential') === 'false' ? false : true;
+      return $schedules;
     }
 
-    public static function getTailgateDeliveryValue() {
-      if (WC()->session->get('tailgate') === 'null') {
-        return BBAM_Utils::getConfig('is_tailgate');
-      } 
-      return WC()->session->get('tailgate') === 'false' ? false : true;
+    public static function warmApiToken()
+    {
+      if (!BBAM_Utils::woocommerceEnabled() || !class_exists('BBAM_Api')) {
+        return;
+      }
+      $api = new BBAM_Api();
+      $api->refreshToken();
+    }
+
+    public static function onPluginDeactivate()
+    {
+      wp_clear_scheduled_hook('bbam_warm_token');
+    }
+
+    public static function addNoteOnCartSubTotalsSection()
+    {
+      echo '<tr><td colspan="2" class="subtotal-note"><div>' . BBAM_Utils::getConfig('quote_notes') . '</div></td></tr>';
+    }
+
+    /**
+     * Render the loading time of the last BBA backend quote refresh in the
+     * cart / checkout shipping area, broken down per endpoint.
+     */
+    public static function printApiTimings()
+    {
+      if (!function_exists('WC') || !WC()->session) {
+        return;
+      }
+
+      $timings = WC()->session->get('bbam_api_timings');
+      if (empty($timings) || !is_array($timings)) {
+        return;
+      }
+
+      $total = 0;
+      $rows  = '';
+      foreach ($timings as $timing) {
+        if (!isset($timing['label'], $timing['ms'])) {
+          continue;
+        }
+        $total += (float) $timing['ms'];
+        $rows  .= '<div class="bbam-api-timing__row"><span>' . esc_html($timing['label'])
+          . '</span><span>' . esc_html(number_format((float) $timing['ms'], 1)) . ' ms</span></div>';
+      }
+
+      echo '<tr class="bbam-api-timing"><th>' . esc_html__('API loading time', 'bbamastro') . '</th><td>'
+        . $rows
+        . '<div class="bbam-api-timing__row bbam-api-timing__total"><span>' . esc_html__('Total', 'bbamastro')
+        . '</span><span>' . esc_html(number_format($total, 1)) . ' ms</span></div>'
+        . '</td></tr>';
+    }
+    
+    public static function add_goods_check_in_cart_page()
+    {
+     $is_residential_delivery = BBAMastro::getResidentialValue();
+	  $is_commercial_delivery = BBAMastro::getCommercialValue();
+      $is_tailgate_delivery = BBAMastro::getTailgateDeliveryValue();
+	  
+	  $is_residential_delivery = BBAM_Utils::getConfig('is_residential')  === 'yes' ? true : false;
+	  $is_commercial_delivery = BBAM_Utils::getConfig('is_commercial') === 'yes' ? true : false;
+		
+	 if(!is_null(BBAMastro::goodsCheckSessionValue())){
+        $is_residential_delivery = BBAMastro::goodsCheckSessionValue();
+        $is_commercial_delivery = !$is_residential_delivery;
+      }
+	
+	  echo '<tr><th>Delivery Options</th></tr>';
+      echo '<tr class="woocommerce-bba-goods-check">';
+	  
+	  //echo '<tr class="woocommerce-bba-goods-check"><th>Goods Check</th><td>';
+		
+		 
+
+		  if (BBAM_Utils::getConfig('show_commercial_delivery') === 'yes') {
+			echo '<td>';
+			woocommerce_form_field('commercial', [
+			  'type' => 'checkbox',
+			  'label_class'=> 'bba-cart',
+			  'label' => __('Business Delivery'),
+			  'id' => 'bba-cart-commercial'
+			], $is_commercial_delivery);
+			echo '</td>';
+		  }
+		
+		 if (BBAM_Utils::getConfig('show_residential_delivery') === 'yes') {
+			echo '<td>';
+			woocommerce_form_field('residential', [
+			  'type' => 'checkbox',
+			  'label_class'=> 'bba-cart',
+			  'label' => __('Residential Delivery'),
+			  'id' => 'bba-cart-residential'
+			], $is_residential_delivery);
+
+			echo '</td>';
+		  }
+		
+		echo '</tr>';
+		
+		echo '<tr class="woocommerce-bba-goods-check">';
+		  if (BBAM_Utils::getConfig('show_tailgate_delivery') === 'yes') {
+			echo '<td>';
+			woocommerce_form_field('tailgate', [
+			  'type' => 'checkbox',
+			  'label_class'=> 'bba-cart',
+			  'label' => __('Tailgate Delivery'),
+			  'id' => 'bba-cart-tailgate'
+			], $is_tailgate_delivery);
+
+			  echo '</td><td></td>';
+		  }
+
+      	echo '</tr>';
+    }
+	  
+	 public static function goodsCheckSessionValue(){
+      $session_residential = WC()->session->get('residential');
+      if($session_residential){
+        if($session_residential ==='true'){
+          $is_residential_delivery = true;
+        }else{
+          $is_residential_delivery = false;
+        }
+        return $is_residential_delivery;
+      }
+
+      return null;
+    }
+
+    
+    public static function add_insurance_in_checkout_page() {
+
+      echo '
+        <tr class="shipping-insurance-row">
+            <td colspan="2">
+
+                <div class="shipping-insurance">
+
+                    <div class="insurance-left">
+
+                        <span class="insurance-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+
+                                <path
+                                    d="M12 3L20 6V11.5C20 16.5 16.6 20.1 12 21C7.4 20.1 4 16.5 4 11.5V6L12 3Z"
+                                    stroke="#147EF5"
+                                    stroke-width="2"
+                                    stroke-linejoin="round"/>
+
+                                <path
+                                    d="M8.5 12L10.8 14.3L15.8 9.3"
+                                    stroke="#147EF5"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"/>
+
+                            </svg>
+                        </span>
+
+                        <span class="insurance-title">
+                            Shipping Insurance
+                            <span class="insurance-optional">(optional)</span>
+                        </span>
+                        <span
+                            class="insurance-info"
+                            title="Protect your shipment against loss or damage.">
+                            i
+                        </span>
+
+                    </div>
+
+                    <label class="insurance-toggle">
+                        <input
+                            type="checkbox"
+                            id="shipping_insurance"
+                            name="shipping_insurance"
+                            value="1">
+
+                      <span class="insurance-slider"></span>
+
+                    </label>
+
+                </div>
+
+            </td>
+        </tr>';
+    }
+
+    public static function add_goods_check_in_checkout_page()
+    {
+      $is_residential_delivery = BBAMastro::getResidentialValue();
+	  $is_commercial_delivery = BBAMastro::getCommercialValue();
+      $is_tailgate_delivery = BBAMastro::getTailgateDeliveryValue();
+	  
+	  $is_residential_delivery = BBAM_Utils::getConfig('is_residential')  === 'yes' ? true : false;
+	  $is_commercial_delivery = BBAM_Utils::getConfig('is_commercial') === 'yes' ? true : false;
+		
+	 if(!is_null(BBAMastro::goodsCheckSessionValue())){
+        $is_residential_delivery = BBAMastro::goodsCheckSessionValue();
+        $is_commercial_delivery = !$is_residential_delivery;
+      }
+	
+	  echo '<tr><th>Delivery Options</th></tr>';
+      echo '<tr class="woocommerce-bba-goods-check">';
+	  
+	  //echo '<tr class="woocommerce-bba-goods-check"><th>Goods Check</th><td>';
+		
+		 
+
+		  if (BBAM_Utils::getConfig('show_commercial_delivery') === 'yes') {
+			echo '<td>';
+			woocommerce_form_field('commercial', [
+			  'type' => 'checkbox',
+			  'label_class'=> 'bba-checkout',
+			  'label' => __('Business Delivery'),
+			  'id' => 'bba-checkout-commercial'
+			], $is_commercial_delivery);
+			echo '</td>';
+		  }
+		
+		 if (BBAM_Utils::getConfig('show_residential_delivery') === 'yes') {
+			echo '<td>';
+			woocommerce_form_field('residential', [
+			  'type' => 'checkbox',
+			  'label_class'=> 'bba-checkout',
+			  'label' => __('Residential Delivery'),
+			  'id' => 'bba-checkout-residential'
+			], $is_residential_delivery);
+
+			echo '</td>';
+		  }
+		
+		echo '</tr>';
+		
+		echo '<tr class="woocommerce-bba-goods-check">';
+		  if (BBAM_Utils::getConfig('show_tailgate_delivery') === 'yes') {
+			echo '<td>';
+			woocommerce_form_field('tailgate', [
+			  'type' => 'checkbox',
+			  'label_class'=> 'bba-checkout',
+			  'label' => __('Tailgate Delivery'),
+			  'id' => 'bba-checkout-tailgate'
+			], $is_tailgate_delivery);
+
+			  echo '</td><td></td>';
+		  }
+
+      	echo '</tr>';
+    }
+
+    public static function getResidentialValue()
+    {
+      if (isset(WC()->session)) {
+        if (BBAM_Utils::getConfig('show_goods_check') === 'no') {
+          return BBAM_Utils::getConfig('is_residential') === 'yes' ? true : false;
+        }
+
+        if (WC()->session->get('residential') === null) {
+          return false;
+        }
+        return WC()->session->get('residential') === 'false' ? false : true;
+      }
+    }
+	
+	public static function getCommercialValue()
+    {
+      if (isset(WC()->session)) {
+        if (BBAM_Utils::getConfig('show_goods_check') === 'no') {
+          return BBAM_Utils::getConfig('is_commercial') === 'yes' ? true : false;
+        }
+
+        if (WC()->session->get('commercial') === null) {
+          return false;
+        }
+        return WC()->session->get('commercial') === 'false' ? false : true;
+      }
+    }
+	  
+    public static function getTailgateDeliveryValue()
+    {
+      if (isset(WC()->session)) {
+        if (BBAM_Utils::getConfig('show_goods_check') === 'no') {
+          return BBAM_Utils::getConfig('is_tailgate') === 'yes' ? true : false;
+        }
+
+        if (WC()->session->get('tailgate') === null) {
+          return false;
+        }
+        return WC()->session->get('tailgate') === 'false' ? false : true;
+      }
     }
 
     public static function addLoadingIndicator()
@@ -200,42 +500,97 @@ if (!class_exists('BBAMastro')) {
 
     public static function updateCartWithGoodsCheck()
     {
-      $residentialDelivery = isset($_POST['residential']) ? sanitize_text_field($_POST['residential']) : null;
-      $tailgateDelivery = isset($_POST['tailgate']) ? sanitize_text_field($_POST['tailgate']) : null;
+      $residentialDelivery = isset($_POST['residential']) ? sanitize_text_field(wp_unslash($_POST['residential'])) : null;
+      $tailgateDelivery = isset($_POST['tailgate']) ? sanitize_text_field(wp_unslash($_POST['tailgate'])) : null;
+
+      if (WC()->session) {
+        WC()->session->set('residential', $residentialDelivery);
+        WC()->session->set('tailgate', $tailgateDelivery);
+      }
+
+      // Backwards-compatible goods-check endpoint. Quote requests now use
+      // independentShippingQuote(), so this endpoint no longer forces a
+      // WooCommerce shipping calculation.
+      wp_send_json_success([
+        'rates' => [],
+        'timings' => [],
+      ]);
+    }
+
+    /**
+     * Calculate BBA shipping independently from WooCommerce's
+     * woocommerce_package_rates / calculate_shipping lifecycle.
+     *
+     * This endpoint receives the destination directly from the browser so
+     * an address change does not wait for WooCommerce checkout recalculation.
+     */
+    public static function independentShippingQuote()
+    {
+      if (!function_exists('WC') || !WC()->cart || !WC()->session) {
+        wp_send_json_error(['message' => 'WooCommerce cart is unavailable.'], 400);
+      }
+
+      if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'bbam_independent_quote')) {
+        wp_send_json_error(['message' => 'Invalid quote request.'], 403);
+      }
+
+      $residentialDelivery = isset($_POST['residential']) ? sanitize_text_field(wp_unslash($_POST['residential'])) : null;
+      $tailgateDelivery = isset($_POST['tailgate']) ? sanitize_text_field(wp_unslash($_POST['tailgate'])) : null;
 
       WC()->session->set('residential', $residentialDelivery);
       WC()->session->set('tailgate', $tailgateDelivery);
 
-      $bbaShipping = new BBAM_ShippingRules();
-      $cartItems = WC()->cart->get_cart();
-      $shippingAddress = WC()->customer->get_shipping();
+      $destination = [
+        'country'  => isset($_POST['country']) ? strtoupper(sanitize_text_field(wp_unslash($_POST['country']))) : '',
+        'state'    => isset($_POST['state']) ? strtoupper(sanitize_text_field(wp_unslash($_POST['state']))) : '',
+        'postcode' => isset($_POST['postcode']) ? sanitize_text_field(wp_unslash($_POST['postcode'])) : '',
+        'city'     => isset($_POST['city']) ? sanitize_text_field(wp_unslash($_POST['city'])) : '',
+        'address'  => isset($_POST['address']) ? sanitize_text_field(wp_unslash($_POST['address'])) : '',
+      ];
 
-      $bbaShipping->calculate_shipping([
-        'contents' => $cartItems,
-        'destination' => $shippingAddress
-      ]);
-
-      $rates = [];
-      foreach ($bbaShipping->rates as $rate) {
-        $rates[] = [
-          'label' => $rate->get_label(),
-          'shipping_id' => $rate->get_id(),
-          'cost' => $rate->get_cost()
-        ];
+      if (empty($destination['country']) || empty($destination['city']) || empty($destination['postcode'])) {
+        wp_send_json_success([
+          'rates' => [],
+          'timings' => [],
+          'message' => 'Please complete country, city and postcode.'
+        ]);
       }
 
-      wp_send_json_success($rates);
-      
-      // $shippingMethods = WC()->shipping()->get_shipping_methods();
-      // $shippingRates = [];
-      // foreach($shippingMethods as $id => $method) {
-      //   $rates = $method->get_instance_option('flat_rate');
-      //   foreach($rates as $rateid => $rateData) {
-      //     $shippingRates[] = ['label' => $rateData['label']];
-      //   }
-      // }
+      try {
+        BBAM_Api::resetTimings();
 
-      // wp_send_json_success(['shipping' => $shippingRates]);
+        $calculator = new BBAM_Shipping_Calculator();
+        $package = [
+          'contents' => WC()->cart->get_cart(),
+          'destination' => $destination,
+        ];
+
+        // IMPORTANT: call the calculator directly. Do not instantiate
+        // BBAM_ShippingRules and do not call calculate_shipping(), because
+        // that method belongs to WooCommerce's shipping lifecycle.
+        $params = $calculator->generateGetQuotesParams($package);
+        $params['packages'] = $calculator->calculatePackaging($package);
+        $quotes = $calculator->getQuotes($params);
+
+        if (BBAM_Utils::getConfig('sort_quotes') === 'yes' && is_array($quotes)) {
+          usort($quotes, function ($a, $b) {
+            if ((float) $a['cost'] === (float) $b['cost']) return 0;
+            return ((float) $a['cost'] < (float) $b['cost']) ? -1 : 1;
+          });
+        }
+
+        WC()->session->set('bbam_api_timings', BBAM_Api::getTimings());
+        WC()->session->set('bbam_independent_destination', $destination);
+        WC()->session->set('bbam_independent_rates', is_array($quotes) ? $quotes : []);
+
+        wp_send_json_success([
+          'rates' => is_array($quotes) ? $quotes : [],
+          'timings' => BBAM_Api::getTimings(),
+        ]);
+      } catch (Throwable $e) {
+        BBAM_Utils::logger($e->getMessage(), 'INDEPENDENT QUOTE ERROR', 'bba-mastro-error');
+        wp_send_json_error(['message' => 'Unable to calculate shipping quote.'], 500);
+      }
     }
 
     public static function addGoodsCheckToOrder($order_id)
@@ -248,7 +603,7 @@ if (!class_exists('BBAMastro')) {
 
     public static function shippingMethods($methods)
     {
-      array_push($methods, 'BBAM_ShippingRules');
+      $methods['bbamastro_rules'] = 'BBAM_ShippingRules';
       return $methods;
     }
 
@@ -302,6 +657,13 @@ if (!class_exists('BBAMastro')) {
       }
 
       return $rates;
+    }
+
+    public static function removeGoodsCheckSession($order_id)
+    {
+      if (function_exists('WC')) {
+        WC()->session->destroy_session();
+      }
     }
   }
 }

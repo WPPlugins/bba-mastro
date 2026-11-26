@@ -1,27 +1,47 @@
 <?php
 class BBAM_AdminCustomOrderFieldsMetabox {
     public function __construct(){
-        add_action('add_meta_boxes', array($this, 'add'));
+        add_action('woocommerce_admin_order_data_after_billing_address', array($this, 'add_consignent_and_tracking'), 10, 1);
     }
 
-    public function add(){
-        add_meta_box(
-			'bba-order-custom-fields',
-			__( 'BBA Mastro Tracking And Consigment Number', 'bba-admin-custom-order-fields' ),
-			array( $this, 'render' ),
-			'shop_order',
-			'normal',
-			'default'
-		);
+    public function add_consignent_and_tracking($order){
+		$custom_order_fields = get_option('bba_admin_custom_order_fields');
+		$order_meta = $order->get_meta_data();
+
+		echo "<h4>BBA MASTRO TRACKING DETAILS</h4>";
+		echo "<ul>";
+
+		foreach($custom_order_fields as $field_id => $field) {
+			$label = $field['label']; 
+			$value = $this->get_meta_data_value($field_id, $order_meta);
+
+			echo "<li>"."<b>".$label."</b>".': '.$value."</li>";
+		}
+
+		echo "</ul>";
     }
 
+	private function get_meta_data_value($field_id, $order_meta_data) {
+		$meta_key_to_find = '_wc_acof_'.$field_id;
+
+		$value = 'N/A';
+		foreach($order_meta_data as $meta) {
+			if ($meta->key === $meta_key_to_find) {
+				$value = $meta->value;
+				break;
+			}
+		}
+
+		return $value;
+	}
+
+	// todo: add implementation code here...
     public function render() {
         global $post;
         $instance = BBAM();
-        $order_fields = $instance::$bbamTrackingConsignmentInstance->getOrderFields(( $post->ID ));
-        
-		if ( ! empty( $order_fields ) ) :
-			?>
+        $order_fields = $instance::$bbamTrackingConsignmentInstance->getOrderFields(( $post->ID ));	
+
+		if (true) : ?>
 			<ul>
 				<?php foreach ( $order_fields as $field ) : ?>
 					<li class="form-field" style="width: 50%; float: left;">
@@ -39,7 +59,6 @@ class BBAM_AdminCustomOrderFieldsMetabox {
 				<?php endforeach; ?>
 			</ul>
 			<div style="clear: both;"></div>
-			<?php
-		endif;
+			<?php endif;
     }
 }

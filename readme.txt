@@ -1,9 +1,9 @@
 === BBA Mastro Plugin ===
 Contributors: developerbbamastro
-Tags: ecommerce, e-commerce, store, sales, sell, shop, cart, checkout, downloadable, downloads, paypal, storefront, woo commerce, shipping, logistics, fulfillment
+Tags: ecommerce, store, shop, cart, checkout
 Requires at least: 4.4
-Tested up to: 6.2
-Stable tag: 2.4.12
+Tested up to: 6.9
+Stable tag: 2.4.13.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 BBA Mastro Multi Carrier Shipping and Logistics Technology able to seamlessly integrate into your Woo cart.

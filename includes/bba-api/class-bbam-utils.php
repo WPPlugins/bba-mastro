@@ -15,6 +15,50 @@ class BBAM_Utils
         return $default;
     }
 
+    /**
+     * Request-scoped cache in front of transients. Transients transparently use
+     * a persistent object cache (Redis/Memcached) when the site has one.
+     *
+     * @var array
+     */
+    private static $requestCache = [];
+
+    public static function quoteCacheTtl()
+    {
+        return (int) apply_filters('bbam_quote_cache_ttl', 10 * MINUTE_IN_SECONDS);
+    }
+
+    /**
+     * Namespace mixed into every cache key. Bumping it (on settings save)
+     * instantly invalidates all cached packaging/quote responses.
+     */
+    public static function cacheNamespace()
+    {
+        return (string) get_option('bbam_cache_ns', '1');
+    }
+
+    public static function bumpCacheNamespace()
+    {
+        update_option('bbam_cache_ns', (string) time());
+    }
+
+    public static function cacheGet($key)
+    {
+        if (array_key_exists($key, self::$requestCache)) {
+            return self::$requestCache[$key];
+        }
+
+        $value = get_transient($key);
+        self::$requestCache[$key] = $value;
+        return $value;
+    }
+
+    public static function cacheSet($key, $value, $ttl)
+    {
+        self::$requestCache[$key] = $value;
+        set_transient($key, $value, (int) $ttl);
+    }
+
     public static function setHeaderOriginValue()
     {
         $apiUrl = self::getConfig('api_url', null);
@@ -102,7 +146,8 @@ class BBAM_Utils
                         wp_insert_term($term->code, $taxonomy, array("description" => $term->code, "slug" => $term->code));
                     }
                 }
-                //TODO: NEED TO RESEARCH ON THIS ONE
+
+                // TODO: NEED TO MAKE THIS WORKING HERE
                 //remove action from wp_loaded to make sure  this function will be executed once.
                 //remove_action("wp_loaded", array('BBAMastro','bbam_add_terms'),10);
             }
@@ -168,8 +213,7 @@ class BBAM_Utils
     {
         if ($payload['order_key']) {
             $shippingData = $payload['shipping_lines'][0]['meta_data'][0];
-            self::logger($shippingData, 'Shipping Data', 'bba-webhook-payload');
-
+           
             if (is_object($shippingData)) {
                 $shipping = $shippingData->get_data();
                 $payload['shipping_lines'][0]['method_id'] = $shipping['value'];
@@ -181,9 +225,7 @@ class BBAM_Utils
                 foreach ($payload['line_items'] as $value) {
                     $product = wc_get_product($value['product_id']);
                     $categories = $product->get_categories();
-                    // $dimensions = $product->get_dimensions();
                     $payload['product_categories'] = [];
-                    // array_push($payload['product_dimensions'], $dimensions);
 
                     if (is_array($categories)) {
                         foreach ($categories as $cat) {
@@ -191,9 +233,7 @@ class BBAM_Utils
                         }
                     } else {
                         array_push($payload['product_categories'], strip_tags($categories));
-                    }
-
-                    self::logger($shippingData, 'Product Categories', 'bba-webhook-payload-product-cat');
+                    }                    
                 }
             }
 
@@ -227,9 +267,56 @@ class BBAM_Utils
                 $payload['sku'] = $payload['id'];
             }
         }
-        self::logger($shippingData, 'Webhook Payload', 'bba-webhook-payload');
 
+        if (function_exists('woo_ldd_get_order_delivery_datetime')) {
+            $future_booking_date_details = woo_ldd_get_order_delivery_datetime($payload['id'], false);
+            if (is_array($future_booking_date_details) && !empty($future_booking_date_details)) {
+                $payload['future_booking_date'] = $future_booking_date_details[0]['delivery_date'];
+                $addOnItems = []; 
+               
+                foreach ($future_booking_date_details as $details) {
+                    $delivery_items = explode(',', $details['item_id']);
+                    if (!empty($delivery_items && is_array($delivery_items))) {
+                        foreach($delivery_items as $item) {
+                            $item = self::generateSetItemsData($item);
+                            if(!self::addOnItemExists($payload['line_items'], $item)) {
+                                array_push($addOnItems, $item);
+                            }
+                        }
+                    }
+                }
+
+                $lineItemsData = $payload['line_items'];
+                $payload['line_items'] = array_merge($lineItemsData, $addOnItems);
+            }
+        }
+
+        self::logger($payload, 'bba webhook payload', 'bba-webhook-payload');
         return $payload;
+    }
+
+    public static function addOnItemExists($lineItems, $item) {
+        $itemExists = false;
+        foreach($lineItems as $itm) {
+            if ($itm['sku'] === $item['sku']) {
+                $itemExists = true;
+                break;
+            }
+        }
+        return $itemExists;
+    }
+
+    public static function generateSetItemsData($itemId) {
+        $productData = wc_get_product($itemId);
+        return [
+            'name' => $productData->get_name(),
+            'product_id' => $productData->get_id(),
+            'quantity' => 1,
+            'subtotal' => $productData->get_price(),
+            'total' => $productData->get_price(),
+            'sku' => $productData->get_sku(),
+            'price' => $productData->get_price()
+        ];
     }
 
     public static function getShippingMethodIndex($rates, $shipping_method)
@@ -246,11 +333,21 @@ class BBAM_Utils
 
     public static function isResidentialDelivery()
     {
-        return WC()->session->get('residential') === 'true' ? true : false;
+        if (BBAM_Utils::getConfig('show_goods_check') === 'no') {
+            return BBAM_Utils::getConfig('is_residential') === 'yes' ? true : false;
+        }
+        
+        if (WC()->session->get('residential') === null) { return false; }
+        return WC()->session->get('residential') === 'false' ? false : true;
     }
 
     public static function isTailgateDelivery()
     {
-        return WC()->session->get('tailgate') === 'true' ? true : false;
+        if (BBAM_Utils::getConfig('show_goods_check') === 'no') {
+            return BBAM_Utils::getConfig('is_tailgate') === 'yes' ? true : false;
+        }
+       
+        if (WC()->session->get('tailgate') === null) { return false; } 
+        return WC()->session->get('tailgate') === 'false' ? false : true;
     }
 }

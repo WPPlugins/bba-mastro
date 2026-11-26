@@ -36,3 +36,214 @@
 .bba-input-checkbox {
     margin-bottom: 0 !important;
 }
+
+
+.cart-subtotal {
+   border: none !important;
+}
+
+.bbam-api-timing th {
+    vertical-align: top;
+}
+
+.bbam-api-timing__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.85em;
+    opacity: 0.85;
+}
+
+.bbam-api-timing__total {
+    font-weight: 600;
+    opacity: 1;
+    margin-top: 2px;
+}
+
+.shipping-insurance-row td {
+    padding: 0 !important;
+    border: 0 !important;
+}
+
+.shipping-insurance {
+    width: 100%;
+    min-height: 82px;
+
+    padding: 14px 20px;
+
+    border: 1px solid #e1e1e1;
+    border-radius: 12px;
+
+    background: #fff;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    box-sizing: border-box;
+}
+
+.shipping-insurance .optional{
+    display: none;
+}
+
+
+/* =========================================
+   LEFT CONTENT
+   ========================================= */
+
+.insurance-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.insurance-icon {
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.insurance-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #222;
+}
+
+.insurance-optional {
+    font-weight: 400;
+    color: #222;
+}
+
+.insurance-info {
+    width: 22px;
+    height: 22px;
+
+    border-radius: 50%;
+
+    background: #147ef5;
+    color: #fff;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: help;
+}
+
+
+/* =========================================
+   TOGGLE
+   ========================================= */
+
+.insurance-toggle {
+    position: relative;
+
+    width: 64px;
+    height: 36px;
+
+    margin: 0;
+
+    cursor: pointer;
+}
+
+.insurance-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.insurance-slider {
+    position: absolute;
+
+    inset: 0;
+
+    background: #d1d5db;
+
+    border-radius: 999px;
+
+    transition: 0.2s ease;
+}
+
+.insurance-slider::before {
+    content: "";
+
+    position: absolute;
+
+    width: 28px;
+    height: 28px;
+
+    left: 4px;
+    top: 4px;
+
+    background: #fff;
+
+    border-radius: 50%;
+
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+
+    transition: 0.2s ease;
+}
+
+
+/* =========================================
+   CHECKED
+   ========================================= */
+
+.insurance-toggle input:checked + .insurance-slider {
+    background: #147ef5;
+}
+
+.insurance-toggle input:checked + .insurance-slider::before {
+    transform: translateX(28px);
+}
+
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+
+@media (max-width: 600px) {
+
+    .shipping-insurance {
+        min-height: 70px;
+        padding: 12px 14px;
+    }
+
+    .insurance-left {
+        gap: 8px;
+    }
+
+    .insurance-title {
+        font-size: 15px;
+    }
+
+    .insurance-info {
+        width: 18px;
+        height: 18px;
+        font-size: 12px;
+    }
+
+    .insurance-toggle {
+        width: 52px;
+        height: 30px;
+    }
+
+    .insurance-slider::before {
+        width: 22px;
+        height: 22px;
+
+        left: 4px;
+        top: 4px;
+    }
+
+    .insurance-toggle input:checked + .insurance-slider::before {
+        transform: translateX(22px);
+    }
+}

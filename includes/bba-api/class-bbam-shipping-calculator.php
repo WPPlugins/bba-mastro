@@ -1,5 +1,5 @@
 <?php
-// Exit if accessed directly.
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -26,10 +26,10 @@ class BBAM_Shipping_Calculator extends BBAM_Api
             'pickupTimezone' => get_option('gmt_offset')
         ];
 
-        $payload['residentialDelivery'] = BBAM_Utils::isResidentialDelivery();
-        $payload['tailGateDelivery'] = BBAM_Utils::isTailgateDelivery();
-
-        # todo: need to modify this code
+        $params['residentialDelivery'] = BBAM_Utils::isResidentialDelivery();
+        $params['tailGateDelivery'] = BBAM_Utils::isTailgateDelivery();
+		$params['poBox'] = false;
+		
         if (!isset($_REQUEST['product-id'])) {
             foreach ($package['contents'] as $item) {
                 $terms_list = wp_get_post_terms($item['product_id'], 'product_cat');
@@ -63,20 +63,51 @@ class BBAM_Shipping_Calculator extends BBAM_Api
 
     public function calculatePackaging($package = [])
     {
-        $api = new BBAM_Api();
         $shippingRules = new BBAM_ShippingRules();
         $default = $shippingRules->getPackageSettings();
-
         $payload = $this->generateCalculatePackagingItemsPayload($package['contents'], $default);
+
         if (count($payload) < 1) return [];
-        $response = $api->sendApiRequest('POST', 'packaging/packaging/calculate', [], $payload, true);
-        return $this->generatePackagingData($response, $payload, $default);
+
+        $cacheKey = 'bbam_pkg_' . md5(BBAM_Utils::cacheNamespace() . '|' . wp_json_encode([$payload, $default]));
+        $cached = BBAM_Utils::cacheGet($cacheKey);
+        if ($cached !== false) {
+            return $cached;
+        }
+
+        // Reuse $this (extends BBAM_Api) so the token memo is shared with getQuotes().
+        $response = $this->sendApiRequest('POST', 'packaging/packaging/calculate', [], $payload, true);
+        $result = $this->generatePackagingData($response, $payload, $default);
+
+        if (!empty($response)) {
+            BBAM_Utils::cacheSet($cacheKey, $result, BBAM_Utils::quoteCacheTtl());
+        }
+        return $result;
     }
 
     private function generateCalculatePackagingItemsPayload($itemsData, $defaultDimensions)
     {
         $items = [];
         foreach ($itemsData as $item) {
+            if (isset($item['addons'])) {
+                $item_addons = $item['addons'];
+                if (is_array($item_addons)) {
+                    foreach ($item_addons as $addon) {
+                        $addonData = wc_get_product($addon['woo_ldd_product']);
+                        $items[] = [
+                            'sku' =>  $addonData->get_sku(),
+                            'quantity' => $item['quantity'],
+                            'length' => (float)  $addonData->get_length() ?: $defaultDimensions['length'],
+                            'width' => (float)  $addonData->get_width() ?: $defaultDimensions['width'],
+                            'height' => (float)  $addonData->get_height() ?: $defaultDimensions['height'],
+                            'weight' => (float)  $addonData->get_weight() ?: $defaultDimensions['weight'],
+                            'weightUnit' => 'Kilograms',
+                            'measureUnit' => 'CM',
+                        ];
+                    }
+                }
+            }
+
             $terms_list = wp_get_post_terms($item['product_id'], 'product_cat');
             $excluded = $this->is_in_excluded_categories($terms_list);
             if ($item['data']->needs_shipping() && !$excluded) {
@@ -112,18 +143,20 @@ class BBAM_Shipping_Calculator extends BBAM_Api
                 ];
             }
         } else {
-            $selected_packaging = $packaging_data[0];
-            foreach ($selected_packaging->packaging as $pkg) {
-                $packaging[] = [
-                    'length'   => (float) $pkg->length,
-                    'width'    => (float) $pkg->width,
-                    'height'   => (float) $pkg->height,
-                    'weight'   => (float) $pkg->maxWeight,
-                    'quantity' => (int) $pkg->qty,
-                    'weightUnit' => $pkg->weightUnit,
-                    'measureUnit' => $pkg->measureUnit,
-                    'contentWeight' => (float) $pkg->contentWeight
-                ];
+            if (is_array($packaging_data)) {
+                $selected_packaging = $packaging_data[0];
+                foreach ($selected_packaging->packaging as $pkg) {
+                    $packaging[] = [
+                        'length'   => (float) $pkg->length,
+                        'width'    => (float) $pkg->width,
+                        'height'   => (float) $pkg->height,
+                        'weight'   => (float) $pkg->maxWeight,
+                        'quantity' => (int) $pkg->qty,
+                        'weightUnit' => $pkg->weightUnit,
+                        'measureUnit' => $pkg->measureUnit,
+                        'contentWeight' => (float) $pkg->contentWeight
+                    ];
+                }
             }
         }
         return $packaging;
@@ -131,27 +164,43 @@ class BBAM_Shipping_Calculator extends BBAM_Api
 
     private function generateItemData($item, $default)
     {
-        return [
+        $data = [
             'quantity' => (int) $item['quantity'],
             'value' => (int) $item['data']->get_regular_price(),
             'length' => (float) $item['data']->get_length() ?: $default['length'],
             'width' => (float) $item['data']->get_width() ?: $default['width'],
             'height' => (float) $item['data']->get_height() ?: $default['height'],
             'weight' => (float) $item['data']->get_weight() ?: $default['weight'],
-            'code' => 'TST',
             'weightUnit'        => 'Kilograms',
             'measureUnit'       => 'CM'
         ];
+        
+        $sku = $this->get_product_sku($item);
+        if ($sku) {
+            $data['code'] = $sku;
+        }
+
+        return $data;
+    }
+
+    private function get_product_sku($product)
+    {
+        try {
+            return $product['data']->get_sku();
+        } catch (Exception $e) {
+            return null;
+        }
     }
 
     private function is_in_excluded_categories($terms_list)
     {
         $excluded_cat_str = BBAM_Utils::getConfig('excluded_categories');
-        $excluded_cat_array = explode(',', strtolower($excluded_cat_str));
-
-        foreach ($terms_list as $category) {
-            if (in_array(strtolower($category->name), $excluded_cat_array)) {
-                return true;
+        if (!is_null($excluded_cat_str)) {
+            $excluded_cat_array = explode(',', strtolower($excluded_cat_str));
+            foreach ($terms_list as $category) {
+                if (in_array(strtolower($category->name), $excluded_cat_array)) {
+                    return true;
+                }
             }
         }
 
@@ -174,19 +223,45 @@ class BBAM_Shipping_Calculator extends BBAM_Api
 
     public function getQuotes($params = [])
     {
-        if (BBAM_Utils::getConfig('enabled') == 'yes') {
-            $api = new BBAM_Api();
-            BBAM_Utils::logger($params, 'QUOTE REQUEST PAYLOAD', 'bba-api-quote-request-payload');
+        if (!$this->is_call_quote_api($params)) { return; }
 
-            if (BBAM_Utils::getConfig('use_new_api') == 'yes') {
-                $response = $api->sendApiRequest('POST', 'carrier/quote-seq', [], $params, true);
-                BBAM_Utils::logger($response, 'QUOTE RAW RESPONSE', 'bba-api-quote-raw-response');
-                return $this->parseNewAPIQuotes($response);
-            } else {
-                $response = $api->sendApiRequest('POST', 'carrier/quote', [], $params, true);
-                return $this->parseOldAPIQuotes($response);
-            }
+        $useNewApi = BBAM_Utils::getConfig('use_new_api') == 'yes';
+        $cacheKey  = 'bbam_quote_' . md5(BBAM_Utils::cacheNamespace() . '|' . ($useNewApi ? 'new' : 'old') . '|' . wp_json_encode($params));
+
+        $cached = BBAM_Utils::cacheGet($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
         }
+
+        // Reuse $this (extends BBAM_Api) so the token memo is shared with calculatePackaging().
+        if ($useNewApi) {
+            $response = $this->sendApiRequest('POST', 'carrier/quote-seq', [], $params, true);
+            $rates = $this->parseNewAPIQuotes($response);
+        } else {
+            $response = $this->sendApiRequest('POST', 'carrier/quote', [], $params, true);
+            $rates = $this->parseOldAPIQuotes($response);
+        }
+
+        if (!empty($rates)) {
+            BBAM_Utils::cacheSet($cacheKey, $rates, BBAM_Utils::quoteCacheTtl());
+        }
+        return $rates;
+    }
+
+    private function is_call_quote_api($params)
+    {
+        if (BBAM_Utils::getConfig('enabled') == 'no' || $this->is_address_invalid($params['destination']) || $this->is_address_invalid($params['source'])) {
+            return false;
+        }
+        return true;
+    }
+
+    private function is_address_invalid($address)
+    {
+        if (empty($address['city']) || empty($address['postcode']) || empty($address['country'])) {
+            return true;
+        }
+        return false;
     }
 
     private function parseNewAPIQuotes($response)
@@ -201,19 +276,19 @@ class BBAM_Shipping_Calculator extends BBAM_Api
                     $carrierProfileId = $carrier->carrierProfileId;
                     $serviceProfileId = $carrier->serviceProfileId;
                     $eta = $carrier->eta;
-                    $cost = $carrier->amount;
+                    $cost = BBAM_Utils::getConfig('round_up_quote_values') == 'yes' ? $this->roundUp($carrier->amount) : $carrier->amount;
                     $tax = $carrier->tax;
                     $currency = $carrier->currency;
- 
+
                     $isFormattedName = BBAM_Utils::getConfig('format_quote_names');
                     if ($isFormattedName === 'yes') {
-                        $label = $carrier->name . ', ' . $eta;
+                        $label = $carrier->carrierName . ', ' . $this->showOnlyMaxTransitDays($eta);
                     } else {
                         $label = $displayName . ' [' . $eta . ']' . '[Tax: ' . $currency . ' $' . $tax . ' ]';
                     }
 
                     $rates[] = [
-                        'id' => $carrierProfileId . '_' . $serviceProfileId,
+                        'id' => 'bbamastro_rules:' . $carrierProfileId . '_' . $serviceProfileId,
                         'label' => $label,
                         'cost' => $cost,
                         'meta_data' => [
@@ -239,21 +314,22 @@ class BBAM_Shipping_Calculator extends BBAM_Api
                     $carrierProfileId = $carrier->carrierProfileId;
                     $serviceProfileId = $carrier->serviceProfileId;
                     $eta = $carrier->eta;
-                    $cost = $carrier->amount;
+                    $cost = BBAM_Utils::getConfig('round_up_quote_values') == 'yes' ? $this->roundUp($carrier->amount) : $carrier->amount;
                     $tax = $carrier->tax;
                     $currency = $carrier->currency;
 
                     $label = $displayName ? $displayName : $serviceProfileName;
-
                     $isFormattedName = BBAM_Utils::getConfig('format_quote_names');
+
                     if ($isFormattedName === 'yes') {
-                        $label = $carrier->carrierProfileName . ', ' . $eta;
+                        $carrierName = $carrier->carrierName;
+                        $label = $carrierName ? $carrierName : $label . ', ' . $this->showOnlyMaxTransitDays($eta);
                     } else {
                         $label = $label . ' [' . $eta . ']' . '[Tax: ' . $currency . ' $' . $tax . ' ]';
                     }
 
                     $rates[] = [
-                        'id' => $carrierProfileId . '_' . $serviceProfileId,
+                        'id' => 'bbamastro_rules:' . $carrierProfileId . '_' . $serviceProfileId,
                         'label' => $label,
                         'cost' => $cost,
                         'meta_data' => [
@@ -265,5 +341,23 @@ class BBAM_Shipping_Calculator extends BBAM_Api
         }
 
         return $rates;
+    }
+
+    private function roundUp($amount)
+    {
+        return ceil($amount);
+    }
+
+    private function showOnlyMaxTransitDays($eta)
+    {
+        $parsedEta = explode('-', $eta);
+
+        if (count($parsedEta) > 1) {
+            $day =  preg_replace("/[^0-9]/", "", $parsedEta[1]);
+            return $day . ' Day(s)';
+        }
+
+        $day =  preg_replace("/[^0-9]/", "", $eta);
+        return $day . ' Days(s)';
     }
 }

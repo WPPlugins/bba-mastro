@@ -1,2 +1,2 @@
 <?php
-// REMOVE GENERATED FIELDS HERE IF NEEDED
+// unregister cron job here.. to avoid errors

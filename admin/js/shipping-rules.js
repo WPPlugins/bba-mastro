@@ -74,4 +74,42 @@ jQuery(function($){
             // NEED TO LOAD THE COUNTRIES AND POSTCODES AVAILABLE IN THE SELECTED COUNTRY
         });
     });
+	
+	checkShippingRules();
+
+    // Goods Checks
+    function checkShippingRules() {
+        let residential = $('#woocommerce_bbamastro_rules_is_residential').val();
+        let commercial = $('#woocommerce_bbamastro_rules_is_commercial').val();
+
+        if (residential === 'yes') {
+            $('#woocommerce_bbamastro_rules_is_residential').val('yes');
+            $('#woocommerce_bbamastro_rules_is_commercial').val('no');
+        }
+
+        if (commercial === 'yes') {
+            $('#woocommerce_bbamastro_rules_is_residential').val('no');
+            $('#woocommerce_bbamastro_rules_is_commercial').val('yes');
+        }
+    }
+
+    $('#woocommerce_bbamastro_rules_is_residential').on('change', function () {
+        let selectedValue = $(this).val();
+
+        if (selectedValue === 'yes') {
+            $('#woocommerce_bbamastro_rules_is_commercial').val('no');
+        } else {
+            $('#woocommerce_bbamastro_rules_is_commercial').val('yes');
+        }
+    });
+
+    $('#woocommerce_bbamastro_rules_is_commercial').on('change', function () {
+        let selectedValue = $(this).val();
+
+        if (selectedValue === 'yes') {
+            $('#woocommerce_bbamastro_rules_is_residential').val('no');
+        } else {
+            $('#woocommerce_bbamastro_rules_is_residential').val('yes');
+        }
+    });
 });
